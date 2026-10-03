@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 本机 SDK 路径（每人不同）
+local.properties
+
+# Kotlin/Native 与编译缓存
+.kotlin/
+
+# 工具与本地草稿
+.tools/
+.v2c/
+.zcode/
+.zcodeignore
+out/
+
+# 日志与临时文件
+*.log
+.DS_Store
+Thumbs.db

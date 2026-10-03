@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "semester": {
+    "name": "2026-2027学年 第一学期",
+    "startDate": "2026-09-07",
+    "totalWeeks": 20
+  },
+  "slots": [
+    { "start": "08:00", "end": "08:45" },
+    { "start": "08:55", "end": "09:40" },
+    { "start": "10:00", "end": "10:45" },
+    { "start": "10:55", "end": "11:40" },
+    { "start": "14:00", "end": "14:45" },
+    { "start": "14:55", "end": "15:40" },
+    { "start": "16:00", "end": "16:45" },
+    { "start": "16:55", "end": "17:40" },
+    { "start": "19:00", "end": "19:45" },
+    { "start": "19:55", "end": "20:40" }
+  ],
+  "entries": [
+    { "name": "高等数学(上)", "teacher": "王老师", "location": "教学楼A101", "day": 1, "startSlot": 1, "endSlot": 2, "startWeek": 1, "endWeek": 16, "pattern": "EVERY" },
+    { "name": "大学英语", "teacher": "李老师", "location": "外语楼302", "day": 1, "startSlot": 3, "endSlot": 4, "startWeek": 1, "endWeek": 16, "pattern": "EVERY" },
+    { "name": "数据结构", "teacher": "张老师", "location": "机房B203", "day": 3, "startSlot": 1, "endSlot": 2, "startWeek": 2, "endWeek": 17, "pattern": "ODD" },
+    { "name": "数据结构(实验)", "teacher": "张老师", "location": "机房B204", "day": 3, "startSlot": 1, "endSlot": 2, "startWeek": 3, "endWeek": 17, "pattern": "EVEN" },
+    { "name": "操作系统", "teacher": "刘老师", "location": "教学楼C305", "day": 5, "startSlot": 5, "endSlot": 6, "startWeek": 1, "endWeek": 16, "pattern": "EVERY" },
+    { "name": "体育", "teacher": "陈老师", "location": "田径场", "day": 5, "startSlot": 9, "endSlot": 10, "startWeek": 1, "endWeek": 16, "pattern": "EVERY" }
+  ]
+}
