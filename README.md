@@ -1,52 +1,52 @@
-简体中文 | [English](README.en.md)
+English | [简体中文](README.zh-CN.md)
 
-# 苦瓜课表（离线安卓课表 App）
+# Bitter Melon Timetable (苦瓜课表)
 
-完全离线、无需登录的安卓课程表应用。导入课表后可查看、修改课程与上课时间，并在课前以通知提醒；另提供可选的「教务网导入」（唯一需要联网的功能）。
+A fully offline Android course-schedule app. Import your timetable, then view and edit courses and class times without any account or network connection, with class reminders beforehand. The optional "academic affairs import" is the only feature that uses the network.
 
-## 功能
+## Features
 
-- **周课表视图**：按周显示课程，自动计算「今天是第几周」，支持左右切周、下拉跳周、今天高亮
-- **多种导入方式**（全部先预览确认再入库）：
-  - Excel (.xlsx) / CSV 文件（UTF-8 / GBK 编码均可）
-  - JSON 备份文件（本应用导出的格式）
-  - 课表截图离线识别（ML Kit 中文 OCR，模型内置 APK，不联网）
-  - 手动添加
-  - 教务网导入（需联网）：应用内打开教务网（默认西南交大，可改为任意学校网址），手动登录后进入「我的选课记录」或「本学期周课表」页面，一键解析导入。兼容 http 子站与自签证书的校内系统（证书异常时会弹窗确认），支持双指缩放；个别学校后台首页 CSS 高度塌陷导致白屏的会自动修复
-- **课程管理**：一门课可含多个时间段；自定义颜色、教师、地点、备注；保存时自动检测时间冲突
-- **节次时间**：每节课的起止时间可自由编辑、增删，适配不同学校的作息
-- **学期管理**：多学期、开学日期（决定周次）、总周数、设为当前 / 归档 / 删除，新学期可复制旧学期节次
-- **课前提醒**：
-  - 全局：提前 N 分钟（0–120 可调），以通知形式提醒；单门课程可单独关闭
-  - 通过 USE_EXACT_ALARM 权限精确触发（安装即授，无弹窗）；重启手机 / 覆盖安装后自动重排
-  - 闹钟走 `setAlarmClock` 通道：免受深度休眠（Doze）合批与厂商省电限制，隔夜后的早八提醒也准时触发（状态栏会显示小闹钟图标）
-  - 通知带横幅、声音与震动（非静默）
-  - 节假日不提醒：列表按国务院 2026 年安排预置，联网时自动同步最新官方安排（holiday-cn 数据源，逐日跟随国务院通知更新，次年安排公布后自动补全）；你手动添加/删除过的日期不会被同步覆盖；列表默认折叠，在「设置 → 节假日」点击查看/编辑
-- **桌面小组件**：今日课程列表，正在上的课高亮，点击进入 App
-- **深色模式**：Material 3 跟随系统，Android 12+ 动态取色
-- **JSON 导出**：备份 / 换机迁移
+- **Weekly timetable grid**: shows courses by week, auto-calculates the current week number, supports swiping between weeks, and highlights today
+- **Multiple import methods** (everything goes through a preview step before anything is written):
+  - Excel (.xlsx) / CSV files (both UTF-8 and GBK encodings)
+  - JSON backup files (this app's own export format)
+  - Offline OCR of timetable screenshots (ML Kit Chinese text recognition, model bundled in the APK — no network)
+  - Manual entry
+  - Academic affairs import (needs network): opens your school's academic affairs website in an in-app WebView (defaults to Southwest Jiaotong University, changeable to any school), log in manually, open the "My Course Selection Records" or "This Semester's Timetable" page, and import with one tap. Compatible with http sub-sites and self-signed certificates of campus systems (a confirmation dialog appears on certificate errors); supports pinch-to-zoom; white screens caused by broken CSS height chains on some admin portals are auto-repaired
+- **Course management**: one course can have multiple time slots; custom colors, teacher, room, and notes; time-conflict detection on save
+- **Class period times**: start/end time of every period is freely editable, with add/remove — adapts to any school's schedule
+- **Semester management**: multiple semesters, start date (drives week numbers), total weeks, set current / archive / delete; new semesters can copy the period table from an old one
+- **Class reminders**:
+  - Global: remind N minutes in advance (0–120) via notification; reminders can be disabled per course
+  - Exact alarms via the USE_EXACT_ALARM permission (granted on install, no dialog); automatically rescheduled after reboot / app update
+  - Alarms go through the `setAlarmClock` channel: immune to Doze batching and vendor battery saving, so the 8 a.m. reminder fires on time even overnight (a small alarm-clock icon appears in the status bar)
+  - Notifications come with a heads-up banner, sound, and vibration (not silent)
+  - Holiday skip: no reminders on statutory holidays. The list is pre-seeded with the State Council's 2026 schedule and auto-synced when online (holiday-cn source, follows the official notices day by day, and fills in next year's schedule once published); dates you added or removed yourself are never overwritten by the sync; the list is collapsed by default — view/edit it under Settings → Holidays
+- **Home-screen widget**: today's courses, the current one highlighted, tap to open the app
+- **Dark mode**: Material 3 follows the system, dynamic color on Android 12+
+- **JSON export**: backup / device migration
 
-## 使用说明
+## Usage
 
-1. 首次启动：先「学期管理」新建学期（名称、第 1 周周一的日期、总周数），或直接「导入课表」（无学期时会自动创建）
-2. 导入模板见 [模板/课程表导入模板.csv](模板/课程表导入模板.csv)，JSON 格式见 [模板/课程表示例.json](模板/课程表示例.json)
-3. 「节次时间」里调整每节课的起止时间（默认 10 节课模板）
-4. 提醒设置在「设置」中；单门课程可在课程编辑页单独关闭提醒
+1. First launch: create a semester in "Semester Management" (name, date of Monday of week 1, total weeks), or just go to "Import Timetable" (a semester is created automatically if none exists)
+2. Import templates: see [模板/课程表导入模板.csv](模板/课程表导入模板.csv) (CSV template) and [模板/课程表示例.json](模板/课程表示例.json) (sample JSON)
+3. Adjust period start/end times in "Period Times" (10-period template by default)
+4. Reminder settings live in "Settings"; reminders can be turned off per course in the course editor
 
-## 构建
+## Build
 
-- 环境：Android Studio（自带 JBR 作为 Gradle JDK）、Android SDK
-- `./gradlew :app:assembleDebug` 产出调试包（全架构，开发用）；`./gradlew :app:assembleRelease` 产出体积优化的发布包（R8 混淆 + 资源压缩 + ABI 拆分，按 `abi/arm64-v8a/` 目录分架构，debug 签名可直接安装）
-- 本仓库 `gradle.properties` 里已启用 `android.overridePathCheck=true`（因工作区路径含中文）
+- Requirements: Android Studio (use its bundled JBR as the Gradle JDK), Android SDK
+- `./gradlew :app:assembleDebug` produces the debug build (all ABIs, for development); `./gradlew :app:assembleRelease` produces the size-optimized release build (R8 shrinking + resource shrinking + ABI splits under `abi/arm64-v8a/` etc., signed with the debug key so it installs directly)
+- `gradle.properties` in this repo enables `android.overridePathCheck=true` (the workspace path contains non-ASCII characters)
 
-## 技术栈
+## Tech Stack
 
-Kotlin · Jetpack Compose (Material 3) · Room · DataStore · Glance (小组件) · ML Kit 文字识别（内置离线模型） · Jsoup（教务网页面解析）
+Kotlin · Jetpack Compose (Material 3) · Room · DataStore · Glance (widget) · ML Kit text recognition (offline model bundled) · Jsoup (academic affairs page parsing)
 
-无账号体系，全部数据仅存于本机数据库（`timetable.db`）。唯一的联网权限 `INTERNET` 仅用于「教务网导入」页面（应用内 WebView 打开教务网），课表数据仍全部保存在本机。
+No account system; all data lives in the on-device database (`timetable.db`). The only network permission, `INTERNET`, is used exclusively by the "Academic Affairs Import" page (in-app WebView) — timetable data itself never leaves the device.
 
-## 已知限制
+## Known Limitations
 
-- 旧版 `.xls`（非 xlsx）不支持，请先用 Office/WPS 另存为 `.xlsx`
-- 截图识别效果取决于图片清晰度与排版规整度，识别结果务必人工确认
-- 国产 ROM（小米/华为等）需要手动允许「自启动」与「后台弹出界面」，否则通知可能被延迟
+- Legacy `.xls` (non-xlsx) is not supported — re-save as `.xlsx` in Office/WPS first
+- Screenshot OCR quality depends on image clarity and layout; always review results before importing
+- On Chinese ROMs (Xiaomi/Huawei etc.) you may need to manually allow "auto-start" and "background pop-up", otherwise notifications can be delayed
