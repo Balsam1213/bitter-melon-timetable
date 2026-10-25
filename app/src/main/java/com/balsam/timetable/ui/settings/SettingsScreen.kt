@@ -58,6 +58,7 @@ fun SettingsScreen(
 ) {
     val vm: SettingsViewModel = viewModel()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val lastBackup by vm.lastBackupTime.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var notifGranted by remember { mutableStateOf(vm.hasNotificationPermission()) }
@@ -206,6 +207,32 @@ fun SettingsScreen(
                 }
                 if (exportError != null) {
                     Text(exportError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("自动备份", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "每天把当前学期存一份到「文档 / 苦瓜课表」，只保留最近 ${com.balsam.timetable.data.backup.AutoBackup.KEEP_COUNT} 份，全程本机不联网",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = settings?.autoBackupEnabled ?: true,
+                        onCheckedChange = { vm.setAutoBackupEnabled(it) },
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { vm.backupNow() }) { Text("立即备份") }
+                    Spacer(Modifier.weight(1f))
+                    lastBackup?.let {
+                        Text(
+                            "上次备份：${com.balsam.timetable.data.backup.AutoBackup.describeTime(it)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Text(
                     "所有数据只保存在本机，不上传任何服务器。导出的 JSON 可用于换机迁移或再导入。",

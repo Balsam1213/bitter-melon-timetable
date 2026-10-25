@@ -48,6 +48,22 @@ class SettingsViewModel : ViewModel() {
 
     fun setColorTheme(v: ColorTheme) = viewModelScope.launch { settingsRepo.setColorTheme(v) }
 
+    /** 自动备份开关：开 → 保证已排期；关 → 取消周期任务 */
+    fun setAutoBackupEnabled(v: Boolean) = viewModelScope.launch {
+        settingsRepo.setAutoBackupEnabled(v)
+        if (v) {
+            com.balsam.timetable.data.backup.AutoBackup.ensureScheduled(Graph.appContext)
+        } else {
+            com.balsam.timetable.data.backup.AutoBackup.cancel(Graph.appContext)
+        }
+    }
+
+    /** 立即备份（异步执行，结果见 lastBackupTime 变化） */
+    fun backupNow() = com.balsam.timetable.data.backup.AutoBackup.runNow(Graph.appContext)
+
+    val lastBackupTime: kotlinx.coroutines.flow.StateFlow<Long?> = settingsRepo.lastBackupTime
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), null)
+
     // 日历管理页（节假日/调休的增删、同步）在 ui/holidays，有自己的 ViewModel
     val holidayCalendar: StateFlow<HolidayCalendar> = settingsRepo.holidayCalendar
         .stateIn(

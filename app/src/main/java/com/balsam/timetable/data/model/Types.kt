@@ -63,4 +63,5 @@ data class AppSettings(
     val textScale: TextScale = TextScale.STANDARD,
     val compactGrid: Boolean = false,
     val colorTheme: ColorTheme = ColorTheme.PURPLE,
+    val autoBackupEnabled: Boolean = true,
 )

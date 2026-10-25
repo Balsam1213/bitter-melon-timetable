@@ -84,6 +84,9 @@ dependencies {
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
 
+    // 每日自动备份当前学期 JSON 到本机 Documents
+    implementation(libs.work.runtime.ktx)
+
     implementation(libs.mlkit.text.recognition.chinese)
     implementation(libs.kotlinx.serialization.json)
     // 教务网导入：解析选课结果页 HTML

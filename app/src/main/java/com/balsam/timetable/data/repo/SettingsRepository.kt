@@ -73,6 +73,8 @@ class SettingsRepository(private val context: Context) {
         val TEXT_SCALE = stringPreferencesKey("text_scale")
         val COMPACT_GRID = booleanPreferencesKey("compact_grid")
         val COLOR_THEME = stringPreferencesKey("color_theme")
+        val AUTO_BACKUP = booleanPreferencesKey("auto_backup_enabled")
+        val LAST_BACKUP_TIME = longPreferencesKey("last_backup_time")
         val HOLIDAY_OFFICIAL = stringSetPreferencesKey("holiday_official")
         val HOLIDAY_ADDED = stringSetPreferencesKey("holiday_added")
         val HOLIDAY_REMOVED = stringSetPreferencesKey("holiday_removed")
@@ -101,6 +103,7 @@ class SettingsRepository(private val context: Context) {
             textScale = TextScale.from(p[Keys.TEXT_SCALE]),
             compactGrid = p[Keys.COMPACT_GRID] ?: false,
             colorTheme = ColorTheme.from(p[Keys.COLOR_THEME]),
+            autoBackupEnabled = p[Keys.AUTO_BACKUP] ?: true,
         )
     }
 
@@ -112,6 +115,14 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTextScale(v: TextScale) = context.settingsStore.edit { it[Keys.TEXT_SCALE] = v.name }
     suspend fun setCompactGrid(v: Boolean) = context.settingsStore.edit { it[Keys.COMPACT_GRID] = v }
     suspend fun setColorTheme(v: ColorTheme) = context.settingsStore.edit { it[Keys.COLOR_THEME] = v.name }
+    suspend fun setAutoBackupEnabled(v: Boolean) = context.settingsStore.edit { it[Keys.AUTO_BACKUP] = v }
+
+    /** 最近一次自动/手动备份完成的时刻（epoch 毫秒）；从未备份返回 null */
+    val lastBackupTime: Flow<Long?> = context.settingsStore.data.map { p -> p[Keys.LAST_BACKUP_TIME] }
+
+    suspend fun markBackupDone() = context.settingsStore.edit {
+        it[Keys.LAST_BACKUP_TIME] = System.currentTimeMillis()
+    }
 
     // 节假日 = (官方列表 ∪ 用户手动添加) − 用户手动删除；调休同理，且与放假冲突时放假优先。
     // 官方列表：从未同步过时用预置的 2026 官方安排；联网同步成功后按年替换。
