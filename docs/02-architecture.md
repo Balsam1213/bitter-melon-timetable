@@ -24,7 +24,7 @@ app/src/main/java/com/balsam/timetable/
 ├── Graph.kt                  # 全局依赖容器；repository.onDataChanged 统一触发重排提醒+刷新小组件
 ├── data/
 │   ├── db/        Entities / Daos / AppDatabase（Room，Flow + suspend 双份 DAO）
-│   ├── model/     Types(枚举/调色板/AppSettings) / WeekLogic(周次与冲突) / HolidayLogic(节假日差集与解析)
+│   ├── model/     Types(枚举/调色板/AppSettings) / WeekLogic(周次与冲突) / WeeksCodec(周次集合编解码与标签) / HolidayLogic(节假日差集与解析)
 │   ├── repo/      TimetableRepository(课程/学期/节次/导入合并/导出) / SettingsRepository(设置+节假日+同步)
 │   ├── html/      HtmlTimetableParser（教务网选课页 → 导入模型）
 │   └── importer/  XlsxParser / TextParsers(CSV,JSON) / OcrParser / ImportModels
@@ -39,21 +39,22 @@ app/src/main/java/com/balsam/timetable/
 └── widget/        TodayWidget.kt（Glance 今日课程 + Receiver）
 ```
 
-## 3. 数据模型（Room v3）
+## 3. 数据模型（Room v4）
 
 - `semesters`：`startDate`（第 1 周周一 "yyyy-MM-dd"）+ `totalWeeks` → 周次按日期计算，不存储
-- `time_slots`：每学期节次起止时间；`isBreak` 已废弃恒 false（兼容 v2 库，v1.2 迁移时删除）
+- `time_slots`：每学期节次起止时间（午休/晚休由上下午空档自动推导，不落库）
 - `courses`：学期、名称、教师、`colorArgb`、备注、`reminderMode`（GLOBAL/OFF，字符串存枚举名）
-- `lessons`：课程 id、`dayOfWeek` 1-7（**周一=1..周日=7，java.time 约定**）、节次区间、周次区间、`weekPattern`、地点（地点在 Lesson 级）
-- 无 ForeignKey，级联删除在 Repository 手工实现
-- **导入侧规则**：超出已有节次数的课程自动按 45 分钟顺延补行（`TimetableRepository`）
+- `lessons`：课程 id、`dayOfWeek` 1-7（**周一=1..周日=7，java.time 约定**）、节次区间、**`weeks` 周次集合单列**（升序逗号分隔 "1,2,...,8,11"，编解码见 `WeeksCodec`；v1.1 及以前是「区间+每周/单周/双周」三列，v4 迁移展开）、地点（地点在 Lesson 级）
+- 无 ForeignKey，级联删除在 Repository 手工实现；schema 历史存档在 `app/schemas/`
+- **导入侧规则**：超出已有节次数的课程自动按 45 分钟顺延补行；周次超出学期总周数的部分在入库时收敛（`TimetableRepository`）
 
 ## 4. 核心机制
 
-### 4.1 周次计算（`WeekLogic`）
+### 4.1 周次计算（`WeekLogic` + `WeeksCodec`）
 - `weekOf(date, startDate, totalWeeks)`：开学前/超总周返回 null
-- `lessonActive`：区间 + EVERY/ODD/EVEN
-- `conflicts`：同星期 + 节次相交 + 周次区间内逐周验证单双周（≤40 次循环）
+- `WeeksCodec`：周次集合 ↔ 字符串编解码、`fromRange/toRange` 与旧「区间+单双周」互转、游程分段展示标签（全学期返回 null 不显示）
+- `lessonActive(week, weekSet)`：集合包含即上课
+- `conflicts`：同星期 + 节次相交 + 周集合交集非空（不再逐周循环）
 
 ### 4.2 提醒调度（`ReminderScheduler`，纯通知模式）
 - 未来 7 天逐日：放假日跳过（受开关控制）→ `dow = holidayCal.effectiveDayOfWeek(date)`（调休映射周几，默认自然星期）→ 按该周几匹配 lesson + `lessonActive` → `上课时间 − 提前量` 排闹钟
@@ -72,10 +73,13 @@ app/src/main/java/com/balsam/timetable/
 `Graph.repository.onDataChanged = { reschedule(); widget.updateAll() }`；课程/学期数据变更、设置变更、节假日变更都走这条链路，防止闹钟/小组件与库内数据脱节。
 
 ### 4.5 导入管线
-所有来源（xlsx/CSV/JSON/OCR/教务网）解析成统一导入模型 → `ImportScreen` 预览（逐条勾选可编辑）→ `TimetableRepository` 合并入库。新导入方式只需实现「来源 → 导入模型」的解析器。
+所有来源（xlsx/CSV/JSON/OCR/教务网）解析成统一导入模型（`ParsedEntry`，v1.2 起周次为集合）→ `ImportScreen` 预览（逐条勾选可编辑，周次编辑用 `WeeksPicker`）→ `TimetableRepository` 合并入库。新导入方式只需实现「来源 → 导入模型」的解析器。JSON 备份为 v2 双写格式（weeks 为主 + 旧区间字段推导），旧版本 App 可导入。
+
+### 4.6 课表分享图片（`TimetableImageExporter`）
+Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、文字色按底色亮度自适应，**文字上对齐**）；经 FileProvider（`cache/share/`）走系统分享，MediaStore 保存相册（API 29+）。入口在课表页 ⋮ 菜单，弹层 `skipPartiallyExpanded` 打开即全展开。
 
 ## 5. 测试
 
-- `app/src/test`：HolidayLogicTest、WeekLogicTest（23 个，纯逻辑单测，无 Android 依赖）
-- **规则**：动 `WeekLogic` / `HolidayLogic` / 解析器必须先补/改对应单测；数据迁移必须写转换函数单测
-- 模拟器冒烟：`timetable_test` AVD（x86_64，装 `app-universal-debug.apk`）
+- `app/src/test`：HolidayLogicTest、WeekLogicTest、WeeksCodecTest（35 个，纯逻辑单测，无 Android 依赖）
+- **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / 解析器必须先补/改对应单测；数据迁移必须写转换函数单测
+- 模拟器冒烟：`timetable_test` AVD（x86_64，装 `app-universal-debug.apk`）；涉及 DB 迁移的版本要实测「装旧版 release → 覆盖升级 → 核对数据」
