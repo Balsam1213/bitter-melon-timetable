@@ -11,7 +11,7 @@ import com.balsam.timetable.data.model.DAY_LABELS
 import com.balsam.timetable.data.model.LessonLike
 import com.balsam.timetable.data.model.ReminderMode
 import com.balsam.timetable.data.model.WeekLogic
-import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -27,9 +27,7 @@ class CourseEditViewModel : ViewModel() {
         override val dayOfWeek: Int = 1,
         override val startSlot: Int = 1,
         override val endSlot: Int = 2,
-        override val startWeek: Int = 1,
-        override val endWeek: Int = 16,
-        override val pattern: WeekPattern = WeekPattern.EVERY,
+        override val weekSet: Set<Int> = (1..16).toSet(),
         val location: String = "",
     ) : LessonLike
 
@@ -82,11 +80,8 @@ class CourseEditViewModel : ViewModel() {
                         note = c.note,
                         reminderMode = ReminderMode.from(c.reminderMode),
                         lessons = cwl.lessons.map {
-                            FormLesson(
-                                it.dayOfWeek, it.startSlot, it.endSlot,
-                                it.startWeek, it.endWeek, it.pattern, it.location,
-                            )
-                        }.ifEmpty { listOf(FormLesson(endWeek = semester.totalWeeks)) },
+                            FormLesson(it.dayOfWeek, it.startSlot, it.endSlot, it.weekSet, it.location)
+                        }.ifEmpty { listOf(FormLesson(weekSet = (1..semester.totalWeeks).toSet())) },
                         isNew = false,
                     )
                     return@launch
@@ -102,10 +97,10 @@ class CourseEditViewModel : ViewModel() {
                             dayOfWeek = prefill.dayOfWeek,
                             startSlot = prefill.startSlot,
                             endSlot = prefill.endSlot,
-                            endWeek = semester.totalWeeks,
+                            weekSet = (1..semester.totalWeeks).toSet(),
                         )
                     } else {
-                        FormLesson(endWeek = semester.totalWeeks)
+                        FormLesson(weekSet = (1..semester.totalWeeks).toSet())
                     }
                 ),
                 colorIdx = repo.coursesOnce(semester.id).size,
@@ -121,8 +116,12 @@ class CourseEditViewModel : ViewModel() {
         val s = _ui.value
         val semester = s.semester ?: return
         if (s.courseName.isBlank()) return
+        if (s.lessons.any { it.weekSet.isEmpty() }) {
+            _ui.value = s.copy(conflictWith = listOf("每个时间段至少要选择一个周次"))
+            return
+        }
         viewModelScope.launch {
-            val conflicts = collectConflicts(semester.id, s)
+            val conflicts = collectConflicts(semester.totalWeeks, s)
             if (conflicts.isEmpty()) {
                 persist(s)
                 _ui.value = _ui.value.copy(saved = true, conflictWith = emptyList())
@@ -136,6 +135,7 @@ class CourseEditViewModel : ViewModel() {
     fun forceSave() {
         val s = _ui.value
         if (s.courseName.isBlank()) return
+        if (s.lessons.any { it.weekSet.isEmpty() }) return
         viewModelScope.launch {
             persist(s)
             _ui.value = _ui.value.copy(saved = true, conflictWith = emptyList())
@@ -159,30 +159,28 @@ class CourseEditViewModel : ViewModel() {
                 dayOfWeek = it.dayOfWeek,
                 startSlot = minOf(it.startSlot, it.endSlot),
                 endSlot = maxOf(it.startSlot, it.endSlot),
-                startWeek = minOf(it.startWeek, it.endWeek),
-                endWeek = maxOf(it.startWeek, it.endWeek),
-                weekPattern = it.pattern.name,
+                weeks = WeeksCodec.format(it.weekSet),
                 location = it.location.trim(),
             )
         }
         repo.saveCourse(course, lessons)
     }
 
-    private suspend fun collectConflicts(semesterId: Long, s: UiState): List<String> {
+    private suspend fun collectConflicts(totalWeeks: Int, s: UiState): List<String> {
         val conflicts = mutableListOf<String>()
         val normalized = s.lessons.map {
             FormLesson(
                 it.dayOfWeek,
                 minOf(it.startSlot, it.endSlot), maxOf(it.startSlot, it.endSlot),
-                minOf(it.startWeek, it.endWeek), maxOf(it.startWeek, it.endWeek),
-                it.pattern, it.location,
+                it.weekSet, it.location,
             )
         }
         normalized.forEach { l ->
-            repo.findConflicts(semesterId, l, if (s.isNew) -1 else courseId).forEach { cwl ->
+            repo.findConflicts(s.semester?.id ?: return emptyList(), l, if (s.isNew) -1 else courseId).forEach { cwl ->
                 cwl.lessons.filter { WeekLogic.conflicts(l, it) }.forEach { cl ->
+                    val weekText = WeeksCodec.label(cl.weekSet, totalWeeks) ?: "全学期"
                     conflicts.add(
-                        "${cwl.course.name}（${DAY_LABELS.getOrElse(l.dayOfWeek - 1) { "" }}第${cl.startSlot}-${cl.endSlot}节，${cl.startWeek}-${cl.endWeek}周${cl.pattern.label}）"
+                        "${cwl.course.name}（${DAY_LABELS.getOrElse(l.dayOfWeek - 1) { "" }}第${cl.startSlot}-${cl.endSlot}节，$weekText）"
                     )
                 }
             }

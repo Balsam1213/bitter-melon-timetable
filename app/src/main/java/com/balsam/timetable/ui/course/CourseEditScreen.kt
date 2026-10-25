@@ -63,11 +63,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.data.model.CourseColors
 import com.balsam.timetable.data.model.ReminderMode
 import com.balsam.timetable.data.model.DAY_LABELS
-import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 import com.balsam.timetable.ui.components.DayDropdown
-import com.balsam.timetable.ui.components.NumberField
-import com.balsam.timetable.ui.components.PatternChips
 import com.balsam.timetable.ui.components.SlotDropdown
+import com.balsam.timetable.ui.components.WeeksPicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,7 +179,11 @@ private fun CourseForm(
         }
         OutlinedButton(onClick = {
             vm.update { s ->
-                s.copy(lessons = s.lessons + CourseEditViewModel.FormLesson(endWeek = s.semester?.totalWeeks ?: 16))
+                s.copy(
+                    lessons = s.lessons + CourseEditViewModel.FormLesson(
+                        weekSet = (1..(s.semester?.totalWeeks ?: 16)).toSet(),
+                    )
+                )
             }
         }) {
             Icon(Icons.Default.Add, contentDescription = null)
@@ -309,19 +312,31 @@ private fun LessonCard(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("第", style = MaterialTheme.typography.bodyMedium)
-                NumberField("起始周", lesson.startWeek, { v ->
-                    onChange(lesson.copy(startWeek = v))
-                }, range = 1..totalWeeks)
-                Text("~", style = MaterialTheme.typography.bodyMedium)
-                NumberField("结束周", lesson.endWeek, { v ->
-                    onChange(lesson.copy(endWeek = v))
-                }, range = 1..totalWeeks)
-                Text("周", style = MaterialTheme.typography.bodyMedium)
+            var weeksExpanded by androidx.compose.runtime.saveable.rememberSaveable(index) {
+                mutableStateOf(false)
             }
-            Spacer(Modifier.height(6.dp))
-            PatternChips(lesson.pattern) { onChange(lesson.copy(pattern = it)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "周次：" + (WeeksCodec.label(lesson.weekSet, totalWeeks) ?: "全学期"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (lesson.weekSet.isEmpty()) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { weeksExpanded = !weeksExpanded }) {
+                    Text(if (weeksExpanded) "收起" else "编辑")
+                }
+            }
+            if (weeksExpanded) {
+                WeeksPicker(
+                    selected = lesson.weekSet,
+                    totalWeeks = totalWeeks,
+                    onChange = { onChange(lesson.copy(weekSet = it)) },
+                )
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = lesson.location,
@@ -442,12 +457,12 @@ private fun CourseDetailContent(
         }
         Spacer(Modifier.height(14.dp))
         DetailSection("上课时间") {
+            val totalWeeks = state.semester?.totalWeeks ?: 0
             state.lessons.forEach { l ->
                 Text(
                     buildString {
                         append("${DAY_LABELS.getOrElse(l.dayOfWeek - 1) { "" }} 第${l.startSlot}-${l.endSlot}节")
-                        append(" · ${l.startWeek}-${l.endWeek}周")
-                        if (l.pattern != WeekPattern.EVERY) append(" ${l.pattern.label}")
+                        append(" · " + (WeeksCodec.label(l.weekSet, totalWeeks) ?: "全学期"))
                         if (l.location.isNotBlank()) append(" · ${l.location}")
                     },
                     style = MaterialTheme.typography.bodyMedium,

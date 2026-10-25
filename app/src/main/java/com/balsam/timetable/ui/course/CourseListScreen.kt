@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -15,11 +16,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -39,22 +42,41 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.Graph
 import com.balsam.timetable.data.db.CourseWithLessons
+import com.balsam.timetable.data.db.Semester
 import com.balsam.timetable.data.model.DAY_LABELS
-import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CourseListViewModel : ViewModel() {
-    val items: StateFlow<List<CourseWithLessons>> = Graph.repository.currentSemester()
+    /** 搜索关键词（课程名 / 教师 / 地点，忽略大小写） */
+    val query = MutableStateFlow("")
+
+    val semester: StateFlow<Semester?> = Graph.repository.currentSemester()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val allItems: StateFlow<List<CourseWithLessons>> = Graph.repository.currentSemester()
         .flatMapLatest { s ->
             if (s == null) flowOf(emptyList()) else Graph.repository.coursesWithLessons(s.id)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val items: StateFlow<List<CourseWithLessons>> = combine(allItems, query) { list, q ->
+        val needle = q.trim()
+        if (needle.isEmpty()) list
+        else list.filter { cwl ->
+            cwl.course.name.contains(needle, ignoreCase = true) ||
+                cwl.course.teacher.contains(needle, ignoreCase = true) ||
+                cwl.lessons.any { it.location.contains(needle, ignoreCase = true) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 
 /** 当前学期全部课程列表：点击查看详情 / 编辑 / 删除 */
@@ -63,6 +85,8 @@ class CourseListViewModel : ViewModel() {
 fun CourseListScreen(onBack: () -> Unit) {
     val vm: CourseListViewModel = viewModel()
     val items by vm.items.collectAsStateWithLifecycle()
+    val semester by vm.semester.collectAsStateWithLifecycle()
+    val totalWeeks = semester?.totalWeeks ?: 0
     var sheetCourseId by remember { mutableStateOf<Long?>(null) }
 
     Scaffold(
@@ -77,20 +101,31 @@ fun CourseListScreen(onBack: () -> Unit) {
             )
         },
     ) { padding ->
-        if (items.isEmpty()) {
-            Box(
-                Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "当前学期还没有课程",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            ) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            OutlinedTextField(
+                value = vm.query.collectAsStateWithLifecycle().value,
+                onValueChange = { vm.query.value = it },
+                singleLine = true,
+                placeholder = { Text("搜索课程 / 教师 / 地点") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            if (items.isEmpty()) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (vm.query.value.isBlank()) "当前学期还没有课程" else "没有匹配「${vm.query.value.trim()}」的课程",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                ) {
                 items(items, key = { it.course.id }) { cwl ->
                     Card(
                         Modifier
@@ -126,8 +161,7 @@ fun CourseListScreen(onBack: () -> Unit) {
                                         buildString {
                                             append(DAY_LABELS.getOrElse(l.dayOfWeek - 1) { "" })
                                             append(" 第${l.startSlot}-${l.endSlot}节")
-                                            append(" · ${l.startWeek}-${l.endWeek}周")
-                                            if (l.pattern != WeekPattern.EVERY) append(" ${l.pattern.label}")
+                                            append(" · " + (WeeksCodec.label(l.weekSet, totalWeeks) ?: "全学期"))
                                             if (l.location.isNotBlank()) append(" · ${l.location}")
                                         },
                                         style = MaterialTheme.typography.bodySmall,
@@ -139,6 +173,7 @@ fun CourseListScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
         }
     }
 

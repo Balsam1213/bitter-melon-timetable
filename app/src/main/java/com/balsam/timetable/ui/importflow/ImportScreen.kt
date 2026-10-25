@@ -49,11 +49,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.data.importer.ParsedEntry
 import com.balsam.timetable.data.model.DAY_LABELS
-import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 import com.balsam.timetable.ui.components.DayDropdown
-import com.balsam.timetable.ui.components.NumberField
-import com.balsam.timetable.ui.components.PatternChips
 import com.balsam.timetable.ui.components.SlotDropdown
+import com.balsam.timetable.ui.components.WeeksPicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,8 +269,7 @@ private fun EntryRow(entry: ParsedEntry, onToggle: () -> Unit, onEdit: () -> Uni
                 buildString {
                     append(DAY_LABELS.getOrElse(entry.dayOfWeek - 1) { "周?" })
                     append(" 第${entry.startSlot}-${entry.endSlot}节")
-                    append(" ${entry.startWeek}-${entry.endWeek}周")
-                    if (entry.weekPattern != WeekPattern.EVERY) append(" ${entry.weekPattern.label}")
+                    append(" · " + (WeeksCodec.label(entry.weeks, 0) ?: "全学期"))
                     if (entry.location.isNotBlank()) append(" · ${entry.location}")
                     if (entry.teacher.isNotBlank()) append(" · ${entry.teacher}")
                 },
@@ -294,9 +292,7 @@ private fun EntryEditDialog(
     var day by remember { mutableStateOf(entry.dayOfWeek) }
     var startSlot by remember { mutableStateOf(entry.startSlot) }
     var endSlot by remember { mutableStateOf(entry.endSlot) }
-    var startWeek by remember { mutableStateOf(entry.startWeek) }
-    var endWeek by remember { mutableStateOf(entry.endWeek) }
-    var pattern by remember { mutableStateOf(entry.weekPattern) }
+    var weeks by remember { mutableStateOf(entry.weeks) }
     val slotCount = 16
 
     AlertDialog(
@@ -316,15 +312,8 @@ private fun EntryEditDialog(
                     SlotDropdown(endSlot, slotCount) { v -> endSlot = v; if (startSlot > v) startSlot = v }
                 }
                 Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("第", style = MaterialTheme.typography.bodyMedium)
-                    NumberField("起周", startWeek, { v -> startWeek = v })
-                    Text("~", style = MaterialTheme.typography.bodyMedium)
-                    NumberField("止周", endWeek, { v -> endWeek = v })
-                    Text("周", style = MaterialTheme.typography.bodyMedium)
-                }
-                Spacer(Modifier.height(6.dp))
-                PatternChips(pattern) { pattern = it }
+                // 编辑时尚未确定目标学期周数，给足上限；导入入库时会按学期总周数收敛
+                WeeksPicker(selected = weeks, totalWeeks = 20, onChange = { weeks = it })
             }
         },
         confirmButton = {
@@ -333,8 +322,7 @@ private fun EntryEditDialog(
                     entry.copy(
                         name = name.trim(), teacher = teacher.trim(), location = location.trim(),
                         dayOfWeek = day, startSlot = startSlot, endSlot = endSlot,
-                        startWeek = startWeek, endWeek = maxOf(startWeek, endWeek),
-                        weekPattern = pattern,
+                        weeks = weeks.ifEmpty { entry.weeks },
                     )
                 )
             }) { Text("保存") }

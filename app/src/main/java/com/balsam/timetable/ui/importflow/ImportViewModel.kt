@@ -130,10 +130,8 @@ class ImportViewModel : ViewModel() {
                 // 识别默认周次跟随当前学期总周数（无学期时按自动新建的 20 周）
                 val totalWeeks = Graph.repository.currentSemesterOnce()?.totalWeeks ?: 20
                 val adjusted = entries.map { e ->
-                    if (e.weekPattern == com.balsam.timetable.data.model.WeekPattern.EVERY &&
-                        e.startWeek == 1 && e.endWeek == 16
-                    ) {
-                        e.copy(endWeek = totalWeeks)
+                    if (e.weeks == (1..16).toSet()) {
+                        e.copy(weeks = (1..totalWeeks).toSet())
                     } else {
                         e
                     }
