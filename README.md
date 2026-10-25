@@ -21,9 +21,9 @@ A fully offline Android course-schedule app. Import your timetable, then view an
   - Exact alarms via the USE_EXACT_ALARM permission (granted on install, no dialog); automatically rescheduled after reboot / app update
   - Alarms go through the `setAlarmClock` channel: immune to Doze batching and vendor battery saving, so the 8 a.m. reminder fires on time even overnight (a small alarm-clock icon appears in the status bar)
   - Notifications come with a heads-up banner, sound, and vibration (not silent)
-  - Holiday skip: no reminders on statutory holidays. The list is pre-seeded with the State Council's 2026 schedule and auto-synced when online (holiday-cn source, follows the official notices day by day, and fills in next year's schedule once published); dates you added or removed yourself are never overwritten by the sync; the list is collapsed by default — view/edit it under Settings → Holidays
-- **Home-screen widget**: today's courses, the current one highlighted, tap to open the app
-- **Dark mode**: Material 3 follows the system, dynamic color on Android 12+
+  - Holidays & makeup workdays: calendar-based management (Settings → Holidays → calendar). Statutory holidays are marked 休 (red, no reminders that day); makeup workdays are marked 班 and remind according to the weekday you assign (default: the day's own weekday). Pre-seeded with the State Council's 2026 schedule (including 6 makeup workdays) and auto-synced online (holiday-cn source, fills in next year's schedule once published); your manual edits are never overwritten by the sync
+- **Home-screen widget**: today's courses, the current one highlighted, tap to open the app; shows "今天放假" on statutory holidays and follows the assigned weekday on makeup workdays
+- **Dark mode**: Material 3 theme that follows the system dark mode
 - **JSON export**: backup / device migration
 
 ## Usage

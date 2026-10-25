@@ -33,6 +33,7 @@ object Notifier {
 
     fun postCourseReminder(
         context: Context,
+        notifId: Int,
         courseName: String,
         slotText: String,
         location: String,
@@ -59,11 +60,11 @@ object Notifier {
             .build()
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(courseName.hashCode(), notification)
+        nm.notify(notifId, notification)
     }
 
-    fun cancelCourseReminder(context: Context, courseName: String) {
+    fun cancelCourseReminder(context: Context, notifId: Int) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(courseName.hashCode())
+        nm.cancel(notifId)
     }
 }

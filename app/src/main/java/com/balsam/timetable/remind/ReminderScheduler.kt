@@ -20,7 +20,8 @@ import java.time.ZoneId
  * - 优先用 setAlarmClock：系统视为用户闹钟，Doze 深度休眠与厂商省电都不会推迟
  *   （setExactAndAllowWhileIdle 在 Doze 下会被合批到维护窗口，隔夜后的早八提醒
  *    可能晚到几十分钟）；无精确闹钟权限时降级 setExactAndAllowWhileIdle；
- * - 节假日（法定假日当天）不发提醒；调休上班日正常提醒；
+ * - 节假日（法定假日当天）不发提醒（受开关控制）；调休上班日按用户设置的周几
+ *   的课表提醒（不受开关控制）；调休未设置周几时按当天自然星期；
  * - 数据变更 / 开机 / 应用启动 / 设置变更 / 每次触发后全量重排（幂等）。
  */
 class ReminderScheduler {
@@ -48,11 +49,11 @@ class ReminderScheduler {
         val settings = Graph.settingsRepository.once()
         if (!settings.reminderEnabled) return@withContext
         val skipHolidays = settings.holidaySkipEnabled
-        val holidays = if (skipHolidays) Graph.settingsRepository.holidayDatesOnce() else emptySet()
+        val holidayCal = Graph.settingsRepository.holidayCalendarOnce()
+        val holidays = if (skipHolidays) holidayCal.offDays else emptySet()
         val semester = Graph.repository.currentSemesterOnce() ?: return@withContext
         val slots = Graph.repository.slotsOnce(semester.id)
-        val numbered = slots
-        if (numbered.isEmpty()) return@withContext
+        if (slots.isEmpty()) return@withContext
         val courses = Graph.repository.coursesOnce(semester.id)
 
         val now = LocalDateTime.now()
@@ -64,6 +65,8 @@ class ReminderScheduler {
                 date = date.plusDays(1)
                 continue
             }
+            // 调休日按用户设置的周几的课表走（未设置为当天自然星期）
+            val dow = holidayCal.effectiveDayOfWeek(date)
             val week = WeekLogic.weekOf(date, semester.startDate, semester.totalWeeks)
             if (week != null) {
                 for (cwl in courses) {
@@ -72,15 +75,15 @@ class ReminderScheduler {
                         com.balsam.timetable.data.model.ReminderMode.OFF
                     ) continue
                     for (lesson in cwl.lessons) {
-                        if (lesson.dayOfWeek != date.dayOfWeek.value) continue
+                        if (lesson.dayOfWeek != dow) continue
                         if (!WeekLogic.lessonActive(week, lesson.startWeek, lesson.endWeek, lesson.pattern)) continue
-                        val startSlot = numbered.getOrNull(lesson.startSlot - 1) ?: continue
+                        val startSlot = slots.getOrNull(lesson.startSlot - 1) ?: continue
                         val startAt = date.atTime(
                             runCatching { LocalTime.parse(startSlot.startTime) }.getOrDefault(LocalTime.of(8, 0))
                         )
                         val remindAt = startAt.minusMinutes(settings.leadMinutes.toLong())
                         if (remindAt.isBefore(now)) continue
-                        val endSlot = numbered.getOrNull(lesson.endSlot - 1)
+                        val endSlot = slots.getOrNull(lesson.endSlot - 1)
                         val range = if (lesson.endSlot > lesson.startSlot) "${lesson.startSlot}-${lesson.endSlot}" else "${lesson.startSlot}"
                         val timeRange = endSlot?.let { "${startSlot.startTime}-${it.endTime}" } ?: startSlot.startTime
                         occurrences.add(
@@ -124,6 +127,7 @@ class ReminderScheduler {
             putExtra(AlarmReceiver.EXTRA_SLOT_TEXT, occ.slotText)
             putExtra(AlarmReceiver.EXTRA_LOCATION, occ.location)
             putExtra(AlarmReceiver.EXTRA_TEACHER, occ.teacher)
+            putExtra(AlarmReceiver.EXTRA_NOTIF_ID, requestCode)
         }
         return PendingIntent.getBroadcast(
             context, requestCode, intent,

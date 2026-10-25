@@ -9,9 +9,10 @@ enum class WeekPattern(val label: String) {
 }
 
 enum class ReminderMode(val label: String) {
-    GLOBAL("跟随全局"), NOTIFICATION("通知"), OFF("关闭");
+    GLOBAL("跟随全局"), OFF("关闭");
 
     companion object {
+        // 旧库里可能存有已废弃的 NOTIFICATION（与 GLOBAL 行为等价），统一回落 GLOBAL
         fun from(s: String?): ReminderMode = entries.firstOrNull { it.name == s } ?: GLOBAL
     }
 }
@@ -39,7 +40,6 @@ object CourseColors {
 data class AppSettings(
     val reminderEnabled: Boolean = true,
     val leadMinutes: Int = 15,
-    val defaultMode: ReminderMode = ReminderMode.NOTIFICATION,
     val showWeekend: Boolean = true,
     val holidaySkipEnabled: Boolean = true,
 )

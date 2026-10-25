@@ -201,8 +201,7 @@ private fun CourseForm(
         }
         Text(
             when (state.reminderMode) {
-                ReminderMode.GLOBAL -> "跟随系统设置中的全局提醒方式"
-                ReminderMode.NOTIFICATION -> "提前发送普通通知"
+                ReminderMode.GLOBAL -> "跟随设置里的全局提醒"
                 ReminderMode.OFF -> "这门课不提醒"
             },
             style = MaterialTheme.typography.bodySmall,

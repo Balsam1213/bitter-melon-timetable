@@ -19,6 +19,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val slotText = intent.getStringExtra(EXTRA_SLOT_TEXT) ?: ""
                 val location = intent.getStringExtra(EXTRA_LOCATION) ?: ""
                 val teacher = intent.getStringExtra(EXTRA_TEACHER) ?: ""
+                val notifId = intent.getIntExtra(EXTRA_NOTIF_ID, courseName.hashCode())
 
                 // 排闹钟后才开启节假日开关/修改节假日列表时，触发时刻再拦一道
                 val settings = Graph.settingsRepository.once()
@@ -27,7 +28,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     if (today in Graph.settingsRepository.holidayDatesOnce()) return@launch
                 }
 
-                Notifier.postCourseReminder(context, courseName, slotText, location, teacher)
+                Notifier.postCourseReminder(context, notifId, courseName, slotText, location, teacher)
 
                 // 触发后重排后续提醒
                 Graph.reminderScheduler.reschedule()
@@ -42,5 +43,6 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_SLOT_TEXT = "slot_text"
         const val EXTRA_LOCATION = "location"
         const val EXTRA_TEACHER = "teacher"
+        const val EXTRA_NOTIF_ID = "notif_id"
     }
 }

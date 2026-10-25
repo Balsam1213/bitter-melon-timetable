@@ -13,8 +13,8 @@ android {
         applicationId = "com.balsam.timetable"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {
@@ -74,4 +74,6 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
 }

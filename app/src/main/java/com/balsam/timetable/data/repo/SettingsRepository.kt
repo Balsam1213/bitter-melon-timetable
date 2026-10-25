@@ -1,6 +1,8 @@
 package com.balsam.timetable.data.repo
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -9,7 +11,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.balsam.timetable.data.model.AppSettings
-import com.balsam.timetable.data.model.ReminderMode
+import com.balsam.timetable.data.model.DayStatus
+import com.balsam.timetable.data.model.HolidayCalendar
+import com.balsam.timetable.data.model.HolidayFetch
+import com.balsam.timetable.data.model.HolidayJsonParser
+import com.balsam.timetable.data.model.HolidayLogic
+import com.balsam.timetable.data.model.HolidayStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -42,13 +49,22 @@ val DEFAULT_HOLIDAYS: Set<String> = buildSet {
     }
 }
 
+/** 2026 年调休上班日（国办发明电〔2025〕7号，与 holiday-cn 2026.json 核对一致） */
+val DEFAULT_MAKEUP_DAYS: Set<String> = setOf(
+    "2026-01-04", // 周日 · 元旦调休
+    "2026-02-14", // 周六 · 春节调休
+    "2026-02-28", // 周六 · 春节调休
+    "2026-05-09", // 周六 · 劳动节调休
+    "2026-09-20", // 周日 · 国庆中秋调休
+    "2026-10-10", // 周六 · 国庆中秋调休
+)
+
 class SettingsRepository(private val context: Context) {
 
     private object Keys {
         val WEB_IMPORT_URL = stringPreferencesKey("web_import_url")
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val LEAD_MINUTES = intPreferencesKey("lead_minutes")
-        val DEFAULT_MODE = stringPreferencesKey("default_mode")
         val SHOW_WEEKEND = booleanPreferencesKey("show_weekend")
         val NOTIF_ASKED = booleanPreferencesKey("notification_asked")
         val HOLIDAY_SKIP = booleanPreferencesKey("holiday_skip_enabled")
@@ -56,6 +72,11 @@ class SettingsRepository(private val context: Context) {
         val HOLIDAY_ADDED = stringSetPreferencesKey("holiday_added")
         val HOLIDAY_REMOVED = stringSetPreferencesKey("holiday_removed")
         val HOLIDAY_SYNC_DAY = longPreferencesKey("holiday_sync_day")
+        val MAKEUP_OFFICIAL = stringSetPreferencesKey("makeup_official")
+        val MAKEUP_ADDED = stringSetPreferencesKey("makeup_added")
+        val MAKEUP_REMOVED = stringSetPreferencesKey("makeup_removed")
+        /** 元素格式 "yyyy-MM-dd=4"（按周四上课）；仅由用户设置，同步永不触碰 */
+        val MAKEUP_DOW = stringSetPreferencesKey("makeup_weekdays")
     }
 
     val webImportUrl: Flow<String> = context.settingsStore.data.map { p ->
@@ -70,7 +91,6 @@ class SettingsRepository(private val context: Context) {
         AppSettings(
             reminderEnabled = p[Keys.REMINDER_ENABLED] ?: true,
             leadMinutes = p[Keys.LEAD_MINUTES] ?: 15,
-            defaultMode = ReminderMode.from(p[Keys.DEFAULT_MODE]),
             showWeekend = p[Keys.SHOW_WEEKEND] ?: false,
             holidaySkipEnabled = p[Keys.HOLIDAY_SKIP] ?: true,
         )
@@ -80,37 +100,29 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setReminderEnabled(v: Boolean) = context.settingsStore.edit { it[Keys.REMINDER_ENABLED] = v }
     suspend fun setLeadMinutes(v: Int) = context.settingsStore.edit { it[Keys.LEAD_MINUTES] = v }
-    suspend fun setDefaultMode(v: ReminderMode) = context.settingsStore.edit { it[Keys.DEFAULT_MODE] = v.name }
     suspend fun setShowWeekend(v: Boolean) = context.settingsStore.edit { it[Keys.SHOW_WEEKEND] = v }
 
-    // 节假日 = (官方列表 ∪ 用户手动添加) − 用户手动删除。
+    // 节假日 = (官方列表 ∪ 用户手动添加) − 用户手动删除；调休同理，且与放假冲突时放假优先。
     // 官方列表：从未同步过时用预置的 2026 官方安排；联网同步成功后按年替换。
     // 用户动过的日期（增/删）永远不被同步覆盖。
-    val holidayDates: Flow<Set<String>> = context.settingsStore.data.map { p ->
-        val official = p[Keys.HOLIDAY_OFFICIAL] ?: DEFAULT_HOLIDAYS
-        val added = p[Keys.HOLIDAY_ADDED] ?: emptySet()
-        val removed = p[Keys.HOLIDAY_REMOVED] ?: emptySet()
-        (official + added) - removed
+    val holidayCalendar: Flow<HolidayCalendar> = context.settingsStore.data.map { p ->
+        HolidayLogic.effective(snapshot(p))
     }
+
+    suspend fun holidayCalendarOnce(): HolidayCalendar = holidayCalendar.first()
+
+    val holidayDates: Flow<Set<String>> = holidayCalendar.map { it.offDays }
 
     suspend fun holidayDatesOnce(): Set<String> = holidayDates.first()
 
-    suspend fun addHolidayDate(date: String) = context.settingsStore.edit { p ->
-        val removed = p[Keys.HOLIDAY_REMOVED] ?: emptySet()
-        if (date in removed) {
-            p[Keys.HOLIDAY_REMOVED] = removed - date
-        } else {
-            p[Keys.HOLIDAY_ADDED] = (p[Keys.HOLIDAY_ADDED] ?: emptySet()) + date
-        }
+    /** 日历页标记/清除某天：放假、调休上班（可带「按周几」）、恢复普通日 */
+    suspend fun setDayStatus(date: String, status: DayStatus) = context.settingsStore.edit { p ->
+        writeStore(p, HolidayLogic.setDayStatus(snapshot(p), date, status))
     }
 
-    suspend fun removeHolidayDate(date: String) = context.settingsStore.edit { p ->
-        val added = p[Keys.HOLIDAY_ADDED] ?: emptySet()
-        if (date in added) {
-            p[Keys.HOLIDAY_ADDED] = added - date
-        } else {
-            p[Keys.HOLIDAY_REMOVED] = (p[Keys.HOLIDAY_REMOVED] ?: emptySet()) + date
-        }
+    /** 单独改调休日「按周几上课」；null = 清除映射、按当天星期 */
+    suspend fun setMakeupDow(date: String, dow: Int?) = context.settingsStore.edit { p ->
+        writeStore(p, HolidayLogic.setMakeupDow(snapshot(p), date, dow))
     }
 
     /** 恢复默认 = 清空用户增删与已同步官方数据，回到预置 2026 列表（下次联网会再同步） */
@@ -118,6 +130,39 @@ class SettingsRepository(private val context: Context) {
         it.remove(Keys.HOLIDAY_OFFICIAL)
         it.remove(Keys.HOLIDAY_ADDED)
         it.remove(Keys.HOLIDAY_REMOVED)
+        it.remove(Keys.MAKEUP_OFFICIAL)
+        it.remove(Keys.MAKEUP_ADDED)
+        it.remove(Keys.MAKEUP_REMOVED)
+        it.remove(Keys.MAKEUP_DOW)
+    }
+
+    private fun snapshot(p: Preferences): HolidayStore = HolidayStore(
+        offOfficial = p[Keys.HOLIDAY_OFFICIAL] ?: DEFAULT_HOLIDAYS,
+        offAdded = p[Keys.HOLIDAY_ADDED] ?: emptySet(),
+        offRemoved = p[Keys.HOLIDAY_REMOVED] ?: emptySet(),
+        makeupOfficial = p[Keys.MAKEUP_OFFICIAL] ?: DEFAULT_MAKEUP_DAYS,
+        makeupAdded = p[Keys.MAKEUP_ADDED] ?: emptySet(),
+        makeupRemoved = p[Keys.MAKEUP_REMOVED] ?: emptySet(),
+        makeupDow = (p[Keys.MAKEUP_DOW] ?: emptySet()).mapNotNull(::parseDowEntry).toMap(),
+    )
+
+    /** "yyyy-MM-dd=4" → (date, 4)；非法条目丢弃 */
+    private fun parseDowEntry(entry: String): Pair<String, Int>? {
+        val i = entry.lastIndexOf('=')
+        if (i <= 0) return null
+        val dow = entry.substring(i + 1).toIntOrNull() ?: return null
+        if (dow !in 1..7) return null
+        return entry.substring(0, i) to dow
+    }
+
+    private fun writeStore(p: MutablePreferences, s: HolidayStore) {
+        p[Keys.HOLIDAY_OFFICIAL] = s.offOfficial
+        p[Keys.HOLIDAY_ADDED] = s.offAdded
+        p[Keys.HOLIDAY_REMOVED] = s.offRemoved
+        p[Keys.MAKEUP_OFFICIAL] = s.makeupOfficial
+        p[Keys.MAKEUP_ADDED] = s.makeupAdded
+        p[Keys.MAKEUP_REMOVED] = s.makeupRemoved
+        p[Keys.MAKEUP_DOW] = s.makeupDow.entries.map { "${it.key}=${it.value}" }.toSet()
     }
 
     suspend fun holidaySkipEnabledOnce(): Boolean =
@@ -129,8 +174,8 @@ class SettingsRepository(private val context: Context) {
     /**
      * 联网同步官方节假日安排（每年国务院 11 月左右发布次年安排后即会更新）。
      * 自动同步每天最多尝试一次；手动同步（force=true）绕过限次。
-     * 单个年份拉取到数据才替换该年，拉不到保留原状。
-     * 返回生效列表是否发生变化（变化则调用方需重排提醒）。
+     * 单个年份拉取到数据才替换该年（放假与调休两个官方集合分别替换），拉不到保留原状。
+     * 返回生效日历是否发生变化（变化则调用方需重排提醒）。
      */
     suspend fun syncHolidayData(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         val today = java.time.LocalDate.now().toEpochDay()
@@ -138,50 +183,60 @@ class SettingsRepository(private val context: Context) {
             val lastSync = context.settingsStore.data.first()[Keys.HOLIDAY_SYNC_DAY] ?: -1L
             if (lastSync == today) return@withContext false
         }
-        val before = holidayDatesOnce()
+        val before = holidayCalendarOnce()
         android.util.Log.d("HolidaySync", "start")
 
         val year = java.time.LocalDate.now().year
-        val fetched = mutableMapOf<Int, Set<String>>()
+        val fetched = mutableMapOf<Int, HolidayFetch>()
         for (y in intArrayOf(year, year + 1)) {
             fetchOfficialHolidays(y)?.let { fetched[y] = it }
         }
         android.util.Log.d("HolidaySync", "fetched years=${fetched.keys}")
         if (fetched.isNotEmpty()) {
+            val years = fetched.keys
             context.settingsStore.edit { p ->
-                val old = p[Keys.HOLIDAY_OFFICIAL] ?: DEFAULT_HOLIDAYS
-                val kept = old.filterNot { it.substringBefore('-').toIntOrNull() in fetched.keys }
-                p[Keys.HOLIDAY_OFFICIAL] = (kept + fetched.values.flatten()).toSet()
+                val oldOff = p[Keys.HOLIDAY_OFFICIAL] ?: DEFAULT_HOLIDAYS
+                p[Keys.HOLIDAY_OFFICIAL] = (
+                    oldOff.filterNot { it.substringBefore('-').toIntOrNull() in years } +
+                        fetched.values.flatMap { it.offDays }
+                    ).toSet()
+                val oldMakeup = p[Keys.MAKEUP_OFFICIAL] ?: DEFAULT_MAKEUP_DAYS
+                p[Keys.MAKEUP_OFFICIAL] = (
+                    oldMakeup.filterNot { it.substringBefore('-').toIntOrNull() in years } +
+                        fetched.values.flatMap { it.makeupDays }
+                    ).toSet()
                 p[Keys.HOLIDAY_SYNC_DAY] = today
             }
             android.util.Log.d(
                 "HolidaySync",
-                "updated years=${fetched.keys} total=${(holidayDatesOnce()).size}"
+                "updated years=${fetched.keys} off=${holidayCalendarOnce().offDays.size} " +
+                    "makeup=${holidayCalendarOnce().makeupDays.size}",
             )
         }
-        holidayDatesOnce() != before
+        holidayCalendarOnce() != before
     }
 
     /** 依次尝试公共节假日数据源（holiday-cn 项目，国务院通知发布后数日内更新）；失败返回 null */
-    private fun fetchOfficialHolidays(year: Int): Set<String>? {
+    private fun fetchOfficialHolidays(year: Int): HolidayFetch? {
         val sources = listOf(
             "https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/$year.json",
             "https://fastly.jsdelivr.net/gh/NateScarlet/holiday-cn@master/$year.json",
             "https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/$year.json",
         )
         for (url in sources) {
-            val dates = runCatching { fetchAndParseHolidays(url, year) }
+            val result = runCatching { fetchAndParseHolidays(url, year) }
                 .onFailure { android.util.Log.d("HolidaySync", "$url -> ${it.javaClass.simpleName}: ${it.message}") }
                 .getOrNull()
-            if (!dates.isNullOrEmpty()) {
-                android.util.Log.d("HolidaySync", "$year from ${url.substringBefore('/')}: ${dates.size} days")
-                return dates
+            if (result != null && (result.offDays.isNotEmpty() || result.makeupDays.isNotEmpty())) {
+                android.util.Log.d("HolidaySync", "$year from ${url.substringBefore('/')}: " +
+                    "off=${result.offDays.size} makeup=${result.makeupDays.size}")
+                return result
             }
         }
         return null
     }
 
-    private fun fetchAndParseHolidays(url: String, year: Int): Set<String>? {
+    private fun fetchAndParseHolidays(url: String, year: Int): HolidayFetch? {
         val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
             connectTimeout = 6000
             readTimeout = 6000
@@ -190,36 +245,7 @@ class SettingsRepository(private val context: Context) {
         conn.connect()
         if (conn.responseCode != 200) return null
         val body = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-        val dates = mutableSetOf<String>()
-        walkHolidayJson(kotlinx.serialization.json.Json.parseToJsonElement(body), year, dates)
-        return dates
-    }
-
-    /**
-     * 兼容两种数据源的宽松解析：递归遍历 JSON，凡是带
-     * "yyyy-MM-dd" 日期字符串字段且布尔标记（holiday / isOffDay）为 true 的对象
-     * 视为一个法定放假日；false（调休上班日）跳过。
-     */
-    private fun walkHolidayJson(el: kotlinx.serialization.json.JsonElement, year: Int, out: MutableSet<String>) {
-        when (el) {
-            is kotlinx.serialization.json.JsonObject -> {
-                var date: String? = null
-                var off = false
-                for ((k, v) in el) {
-                    if (v is kotlinx.serialization.json.JsonPrimitive && v.isString) {
-                        val s = v.content
-                        if (s.length == 10 && s.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) date = s
-                    } else if (v is kotlinx.serialization.json.JsonPrimitive && (k == "holiday" || k == "isOffDay")) {
-                        off = v.content == "true"
-                    }
-                }
-                val d = date
-                if (d != null && off && d.startsWith("$year-")) out.add(d)
-                for (v in el.values) walkHolidayJson(v, year, out)
-            }
-            is kotlinx.serialization.json.JsonArray -> for (v in el) walkHolidayJson(v, year, out)
-            else -> Unit
-        }
+        return HolidayJsonParser.parse(body, year)
     }
 
     suspend fun notificationAsked(): Boolean =

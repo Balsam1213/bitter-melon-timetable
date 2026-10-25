@@ -9,8 +9,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.balsam.timetable.Graph
 import com.balsam.timetable.data.model.AppSettings
-import com.balsam.timetable.data.model.ReminderMode
+import com.balsam.timetable.data.model.HolidayCalendar
 import com.balsam.timetable.data.repo.DEFAULT_HOLIDAYS
+import com.balsam.timetable.data.repo.DEFAULT_MAKEUP_DAYS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,43 +37,19 @@ class SettingsViewModel : ViewModel() {
         Graph.reminderScheduler.reschedule()
     }
 
-    fun setDefaultMode(m: ReminderMode) = viewModelScope.launch {
-        settingsRepo.setDefaultMode(m)
-        Graph.reminderScheduler.reschedule()
-    }
-
     fun setShowWeekend(v: Boolean) = viewModelScope.launch { settingsRepo.setShowWeekend(v) }
 
-    val holidayDates: StateFlow<Set<String>> = settingsRepo.holidayDates
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DEFAULT_HOLIDAYS)
+    // 日历管理页（节假日/调休的增删、同步）在 ui/holidays，有自己的 ViewModel
+    val holidayCalendar: StateFlow<HolidayCalendar> = settingsRepo.holidayCalendar
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            HolidayCalendar(offDays = DEFAULT_HOLIDAYS, makeupDays = DEFAULT_MAKEUP_DAYS),
+        )
 
     fun setHolidaySkipEnabled(v: Boolean) = viewModelScope.launch {
         settingsRepo.setHolidaySkipEnabled(v)
         Graph.reminderScheduler.reschedule()
-    }
-
-    fun addHolidayDate(date: String) = viewModelScope.launch {
-        settingsRepo.addHolidayDate(date)
-        Graph.reminderScheduler.reschedule()
-    }
-
-    fun removeHolidayDate(date: String) = viewModelScope.launch {
-        settingsRepo.removeHolidayDate(date)
-        Graph.reminderScheduler.reschedule()
-    }
-
-    fun restoreDefaultHolidays() = viewModelScope.launch {
-        settingsRepo.restoreDefaultHolidays()
-        Graph.reminderScheduler.reschedule()
-    }
-
-    /** 手动触发一次同步（设置页用，绕过每日限次）；返回是否生效列表有变化 */
-    fun syncHolidays() = viewModelScope.launch {
-        runCatching {
-            if (settingsRepo.syncHolidayData(force = true)) {
-                Graph.reminderScheduler.reschedule()
-            }
-        }
     }
 
     fun hasNotificationPermission(): Boolean {

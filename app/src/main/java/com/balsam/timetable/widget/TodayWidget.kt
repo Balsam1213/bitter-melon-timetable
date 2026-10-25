@@ -82,11 +82,22 @@ class TodayWidget : GlanceAppWidget() {
             ?: return WidgetData("未设置学期", "", emptyList(), "先在应用里设置学期")
         val today = LocalDate.now()
         val dateLabel = today.format(DateTimeFormatter.ofPattern("M月d日 EEEE"))
+        val holidayCal = Graph.settingsRepository.holidayCalendarOnce()
+        if (holidayCal.isOff(today)) {
+            val week = WeekLogic.weekOf(today, semester.startDate, semester.totalWeeks)
+            return WidgetData(
+                dateLabel,
+                week?.let { "第${it}周" } ?: "假期中",
+                emptyList(),
+                "今天放假，好好休息",
+            )
+        }
         val week = WeekLogic.weekOf(today, semester.startDate, semester.totalWeeks)
             ?: return WidgetData(dateLabel, "假期中", emptyList())
         val numbered = Graph.repository.slotsOnce(semester.id)
         val courses = Graph.repository.coursesOnce(semester.id)
-        val dow = today.dayOfWeek.value
+        // 调休上班日按用户设置的周几的课表显示（未设置为当天自然星期）
+        val dow = holidayCal.effectiveDayOfWeek(today)
         val now = LocalTime.now()
 
         val rows = courses.flatMap { cwl ->

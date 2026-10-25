@@ -20,6 +20,7 @@ object Routes {
     const val SLOTS = "slots"
     const val SEMESTERS = "semesters"
     const val SETTINGS = "settings"
+    const val HOLIDAYS = "holidays"
     const val IMPORT = "import?fresh={fresh}"
     const val WEB_IMPORT = "webimport"
 
@@ -65,6 +66,12 @@ fun AppNavHost() {
             SettingsScreen(
                 onBack = { nav.popBackStack() },
                 onOpenImport = { nav.navigate(Routes.IMPORT) },
+                onOpenHolidays = { nav.navigate(Routes.HOLIDAYS) },
+            )
+        }
+        composable(Routes.HOLIDAYS) {
+            com.balsam.timetable.ui.holidays.HolidayCalendarScreen(
+                onBack = { nav.popBackStack() },
             )
         }
         composable(Routes.WEB_IMPORT) {

@@ -77,6 +77,7 @@ import com.balsam.timetable.data.db.Lesson
 import com.balsam.timetable.data.db.Semester
 import com.balsam.timetable.data.db.TimeSlot
 import com.balsam.timetable.data.model.DAY_LABELS
+import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.WeekLogic
 import com.balsam.timetable.data.model.WeekPattern
 import com.balsam.timetable.ui.course.CourseEditSheet
@@ -534,11 +535,37 @@ private fun WeekContent(
                             color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Text(
-                            "${date.monthValue}/${date.dayOfMonth}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "${date.monthValue}/${date.dayOfMonth}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            // 节假日「休」/ 调休「班」标记
+                            when (val st = state.holidays.statusOf(date)) {
+                                DayStatus.Off -> Text(
+                                    "休",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier
+                                        .padding(start = 2.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.errorContainer)
+                                        .padding(horizontal = 3.dp),
+                                )
+                                is DayStatus.Makeup -> Text(
+                                    if (st.dow != null) "班·${DAY_LABELS[st.dow - 1].removePrefix("周")}" else "班",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier
+                                        .padding(start = 2.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                        .padding(horizontal = 3.dp),
+                                )
+                                DayStatus.Normal -> Unit
+                            }
+                        }
                     }
                 }
             }
