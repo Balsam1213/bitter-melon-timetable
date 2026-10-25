@@ -10,11 +10,11 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.balsam.timetable.data.holiday.HolidaySyncClient
 import com.balsam.timetable.data.model.AppSettings
 import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.HolidayCalendar
 import com.balsam.timetable.data.model.HolidayFetch
-import com.balsam.timetable.data.model.HolidayJsonParser
 import com.balsam.timetable.data.model.HolidayLogic
 import com.balsam.timetable.data.model.HolidayStore
 import kotlinx.coroutines.Dispatchers
@@ -184,14 +184,12 @@ class SettingsRepository(private val context: Context) {
             if (lastSync == today) return@withContext false
         }
         val before = holidayCalendarOnce()
-        android.util.Log.d("HolidaySync", "start")
 
         val year = java.time.LocalDate.now().year
         val fetched = mutableMapOf<Int, HolidayFetch>()
         for (y in intArrayOf(year, year + 1)) {
-            fetchOfficialHolidays(y)?.let { fetched[y] = it }
+            HolidaySyncClient.fetch(y)?.let { fetched[y] = it }
         }
-        android.util.Log.d("HolidaySync", "fetched years=${fetched.keys}")
         if (fetched.isNotEmpty()) {
             val years = fetched.keys
             context.settingsStore.edit { p ->
@@ -207,45 +205,8 @@ class SettingsRepository(private val context: Context) {
                     ).toSet()
                 p[Keys.HOLIDAY_SYNC_DAY] = today
             }
-            android.util.Log.d(
-                "HolidaySync",
-                "updated years=${fetched.keys} off=${holidayCalendarOnce().offDays.size} " +
-                    "makeup=${holidayCalendarOnce().makeupDays.size}",
-            )
         }
         holidayCalendarOnce() != before
-    }
-
-    /** 依次尝试公共节假日数据源（holiday-cn 项目，国务院通知发布后数日内更新）；失败返回 null */
-    private fun fetchOfficialHolidays(year: Int): HolidayFetch? {
-        val sources = listOf(
-            "https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/$year.json",
-            "https://fastly.jsdelivr.net/gh/NateScarlet/holiday-cn@master/$year.json",
-            "https://raw.githubusercontent.com/NateScarlet/holiday-cn/master/$year.json",
-        )
-        for (url in sources) {
-            val result = runCatching { fetchAndParseHolidays(url, year) }
-                .onFailure { android.util.Log.d("HolidaySync", "$url -> ${it.javaClass.simpleName}: ${it.message}") }
-                .getOrNull()
-            if (result != null && (result.offDays.isNotEmpty() || result.makeupDays.isNotEmpty())) {
-                android.util.Log.d("HolidaySync", "$year from ${url.substringBefore('/')}: " +
-                    "off=${result.offDays.size} makeup=${result.makeupDays.size}")
-                return result
-            }
-        }
-        return null
-    }
-
-    private fun fetchAndParseHolidays(url: String, year: Int): HolidayFetch? {
-        val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
-            connectTimeout = 6000
-            readTimeout = 6000
-            setRequestProperty("User-Agent", "BitterMelonTimetable/1.0")
-        }
-        conn.connect()
-        if (conn.responseCode != 200) return null
-        val body = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-        return HolidayJsonParser.parse(body, year)
     }
 
     suspend fun notificationAsked(): Boolean =
