@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -998,8 +999,10 @@ private fun ShareImageSheet(file: java.io.File, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val bitmap = remember(file) { android.graphics.BitmapFactory.decodeFile(file.absolutePath) }
     var message by remember { mutableStateOf<String?>(null) }
+    // 直接完全展开：半展开态下预览图和按钮都会被藏在下面
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -1012,8 +1015,10 @@ private fun ShareImageSheet(file: java.io.File, onDismiss: () -> Unit) {
                 androidx.compose.foundation.Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = "课表图片预览",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(max = 440.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .border(
                             1.dp,

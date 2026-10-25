@@ -32,9 +32,9 @@ object TimetableImageExporter {
     private const val W = 1080
     private const val PAD = 24f
     private const val TIME_COL = 104f
-    private const val TITLE_H = 136f
-    private const val HEAD_H = 96f
-    private const val SLOT_H = 132f
+    private const val TITLE_H = 140f
+    private const val HEAD_H = 100f
+    private const val SLOT_H = 150f
     private const val FOOTER_H = 72f
 
     private const val BG = 0xFFF6F4FB
@@ -62,12 +62,12 @@ object TimetableImageExporter {
         val weekStart = WeekLogic.weekMonday(semester.startDate, week)
 
         // ---------- 标题 ----------
-        val titleP = textPaint(46f, TITLE_FG.toInt(), bold = true).apply { textAlign = Paint.Align.CENTER }
-        canvas.drawText(semester.name, W / 2f, 62f, titleP)
-        val subP = textPaint(30f, SUB_FG.toInt()).apply { textAlign = Paint.Align.CENTER }
+        val titleP = textPaint(48f, TITLE_FG.toInt(), bold = true).apply { textAlign = Paint.Align.CENTER }
+        canvas.drawText(semester.name, W / 2f, 64f, titleP)
+        val subP = textPaint(32f, SUB_FG.toInt()).apply { textAlign = Paint.Align.CENTER }
         val range = "${weekStart.monthValue}月${weekStart.dayOfMonth}日 - " +
             weekStart.plusDays(6).let { "${it.monthValue}月${it.dayOfMonth}日" }
-        canvas.drawText("第${week}周 · $range", W / 2f, 106f, subP)
+        canvas.drawText("第${week}周 · $range", W / 2f, 110f, subP)
 
         // ---------- 表头 ----------
         val dayW = (W - PAD * 2 - TIME_COL) / days
@@ -77,23 +77,23 @@ object TimetableImageExporter {
             val cx = PAD + TIME_COL + (d - 1) * dayW + dayW / 2
             val date = weekStart.plusDays((d - 1).toLong())
             val isToday = date == today
-            val dayP = textPaint(34f, if (isToday) TITLE_FG.toInt() else TITLE_FG.toInt(), bold = true)
+            val dayP = textPaint(36f, TITLE_FG.toInt(), bold = true)
             dayP.textAlign = Paint.Align.CENTER
-            val dateP = textPaint(26f, if (isToday) TITLE_FG.toInt() else SUB_FG.toInt())
+            val dateP = textPaint(28f, if (isToday) TITLE_FG.toInt() else SUB_FG.toInt())
             dateP.textAlign = Paint.Align.CENTER
-            val y0 = TITLE_H + 44f
+            val y0 = TITLE_H + 46f
             canvas.drawText(DAY_LABELS[d - 1], cx, y0, dayP)
-            canvas.drawText("${date.monthValue}/${date.dayOfMonth}", cx, y0 + 36f, dateP)
+            canvas.drawText("${date.monthValue}/${date.dayOfMonth}", cx, y0 + 38f, dateP)
         }
 
         // ---------- 左列节次 ----------
-        val numP = textPaint(30f, SUB_FG.toInt(), bold = true).apply { textAlign = Paint.Align.CENTER }
-        val timeP = textPaint(22f, SUB_FG.toInt()).apply { textAlign = Paint.Align.CENTER }
+        val numP = textPaint(32f, SUB_FG.toInt(), bold = true).apply { textAlign = Paint.Align.CENTER }
+        val timeP = textPaint(24f, SUB_FG.toInt()).apply { textAlign = Paint.Align.CENTER }
         slots.forEachIndexed { i, s ->
             val cy = gridTop + i * SLOT_H
-            canvas.drawText("${s.orderIndex}", PAD + TIME_COL / 2, cy + 54f, numP)
-            canvas.drawText(s.startTime, PAD + TIME_COL / 2, cy + 84f, timeP)
-            canvas.drawText(s.endTime, PAD + TIME_COL / 2, cy + 108f, timeP)
+            canvas.drawText("${s.orderIndex}", PAD + TIME_COL / 2, cy + 56f, numP)
+            canvas.drawText(s.startTime, PAD + TIME_COL / 2, cy + 88f, timeP)
+            canvas.drawText(s.endTime, PAD + TIME_COL / 2, cy + 114f, timeP)
             // 行分隔线
             canvas.drawLine(PAD, cy, W - PAD, cy, linePaint())
         }
@@ -152,22 +152,22 @@ object TimetableImageExporter {
         val b = Color.blue(color) / 255f
         val fg = if (0.299f * r + 0.587f * g + 0.114f * b > 0.72f) Color.BLACK else Color.WHITE
 
-        val pad = 12f
+        val pad = 14f
         val maxW = x1 - x0 - pad * 2
-        var y = top + 34f
-        val nameP = textPaint(28f, fg, bold = true)
+        var y = top + 38f
+        val nameP = textPaint(34f, fg, bold = true)
         wrap(nameP, cwl.course.name, maxW, 3).forEach { line ->
-            canvas.drawText(line, x0 + pad, y, nameP); y += 34f
+            canvas.drawText(line, x0 + pad, y, nameP); y += 40f
         }
-        if (lesson.location.isNotBlank() && bottom - y > 60f) {
-            val locP = textPaint(24f, fg)
+        if (lesson.location.isNotBlank() && bottom - y > 68f) {
+            val locP = textPaint(28f, fg)
             wrap(locP, lesson.location, maxW, 2).forEach { line ->
-                canvas.drawText(line, x0 + pad, y, locP); y += 30f
+                canvas.drawText(line, x0 + pad, y, locP); y += 34f
             }
         }
         val label = WeeksCodec.label(lesson.weekSet, totalWeeks)
-        if (label != null && bottom - y > 34f) {
-            canvas.drawText(label, x0 + pad, y + 26f, textPaint(22f, fg))
+        if (label != null && bottom - y > 40f) {
+            canvas.drawText(label, x0 + pad, y + 30f, textPaint(24f, fg))
         }
     }
 
