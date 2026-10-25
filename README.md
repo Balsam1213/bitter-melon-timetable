@@ -13,7 +13,9 @@ A fully offline Android course-schedule app. Import your timetable, then view an
   - Offline OCR of timetable screenshots (ML Kit Chinese text recognition, model bundled in the APK — no network)
   - Manual entry
   - Academic affairs import (needs network): opens your school's academic affairs website in an in-app WebView (defaults to Southwest Jiaotong University, changeable to any school), log in manually, open the "My Course Selection Records" or "This Semester's Timetable" page, and import with one tap. Compatible with http sub-sites and self-signed certificates of campus systems (a confirmation dialog appears on certificate errors); supports pinch-to-zoom; white screens caused by broken CSS height chains on some admin portals are auto-repaired
-- **Course management**: one course can have multiple time slots; custom colors, teacher, room, and notes; time-conflict detection on save
+- **Course management**: one course can have multiple time slots; **arbitrary week sets** (e.g. weeks "1-8, 11-16" — odd/even weeks are just quick presets); custom colors, teacher, room, and notes; time-conflict detection on save
+- **Timetable sharing**: render the current week to an image, save it to the gallery or share it with friends
+- **Course search**: quick filtering by name / teacher / room on the course list page
 - **Class period times**: start/end time of every period is freely editable, with add/remove — adapts to any school's schedule
 - **Semester management**: multiple semesters, start date (drives week numbers), total weeks, set current / archive / delete; new semesters can copy the period table from an old one
 - **Class reminders**:
