@@ -10,6 +10,7 @@
 - **工程加固**：Gradle version catalog 统一依赖管理；AGP lint 纳入门禁并清零全部错误（含 androidx.exifinterface 替换、图标 monochrome 单色层等）；单测 35 → 81（解析器/导入映射/周小组件数据全覆盖）；新增 Room v3→v4 迁移的 instrumented 测试（旧 schema 从 v1.1 历史提交收割）
 - **重构**：TimetableScreen/CourseEditScreen 大文件按职责拆分（纯移动，行为不变）；节假日网络同步抽独立层 HolidaySyncClient；删除同步路径调试日志
 - 周网格尺寸与字号集中于 GridMetrics 管理；网格布局对设置变化即时重排
+- 修复：发布后用户反馈——系统大字体（≥1.5 倍）下主题/字号选择按钮被挤成竖排变形；选择行改 FlowRow，放不下整颗换行（模拟器 1.5 倍字体复现验证）；Release 资产已同步更新
 - `versionName` 1.3 / `versionCode` 4
 
 ## v1.2（2026-10-25）

@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,7 +51,7 @@ import com.balsam.timetable.data.model.TextScale
 import com.balsam.timetable.ui.theme.primarySwatchOf
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -150,7 +152,12 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("课表字号", fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // FlowRow 而非 Row：系统大字体下 chips 总宽超出屏幕时整颗换行，
+                // 不然最后一个 chip 的文字会被挤成竖排
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     TextScale.entries.forEach { ts ->
                         FilterChip(
                             selected = settings?.textScale == ts,
@@ -181,7 +188,10 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("应用主题", fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     ColorTheme.entries.forEach { t ->
                         FilterChip(
                             selected = settings?.colorTheme == t,
