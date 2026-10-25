@@ -7,36 +7,40 @@
 | 层 | 选型 |
 |---|---|
 | 语言 | Kotlin，Java 11 兼容 |
-| UI | Jetpack Compose + Material 3（固定品牌紫，不用动态取色） |
+| UI | Jetpack Compose + Material 3（预设四主题，默认经典紫，不用动态取色） |
 | 架构 | 单模块 `:app`，MVVM（Screen + ViewModel + Repository），`Graph.kt` 手写 DI，无 Hilt |
 | 数据 | Room（`timetable.db`，version 4）+ DataStore Preferences（`settings`） |
-| 小组件 | Glance 1.2 |
+| 小组件 | Glance 1.2（今日课程 + 周视图） |
+| 后台任务 | WorkManager（每日自动备份） |
 | OCR | ML Kit 中文识别（模型内置，ABI 拆分省体积） |
 | HTML 解析 | Jsoup（教务网导入） |
-| 序列化 | kotlinx-serialization（JSON 备份） |
+| 序列化 | kotlinx-serialization（JSON 备份/导出） |
+| 构建 | Gradle version catalog（`gradle/libs.versions.toml`）；AGP lint 纳入门禁（错误零容忍） |
 | SDK | minSdk 26 / targetSdk 36 / compileSdk 37，AGP 9.x + Kotlin 2.x + KSP |
 
 ## 2. 代码结构
 
 ```
 app/src/main/java/com/balsam/timetable/
-├── TimetableApplication.kt   # 入口；onCreate 挂每日节假日同步
-├── Graph.kt                  # 全局依赖容器；repository.onDataChanged 统一触发重排提醒+刷新小组件
+├── TimetableApplication.kt   # 入口；onCreate 挂每日节假日同步 + 自动备份排期
+├── Graph.kt                  # 全局依赖容器；repository.onDataChanged 统一触发重排提醒+Widgets.updateAll
 ├── data/
 │   ├── db/        Entities / Daos / AppDatabase（Room，Flow + suspend 双份 DAO）
 │   ├── model/     Types(枚举/调色板/AppSettings) / WeekLogic(周次与冲突) / WeeksCodec(周次集合编解码与标签) / HolidayLogic(节假日差集与解析)
-│   ├── repo/      TimetableRepository(课程/学期/节次/导入合并/导出) / SettingsRepository(设置+节假日+同步)
+│   ├── repo/      TimetableRepository(课程/学期/节次/导入合并/导出) / SettingsRepository(设置+节假日存储)
+│   ├── holiday/   HolidaySyncClient（holiday-cn 联网拉取，唯一网络职责）
+│   ├── backup/    AutoBackup（每日备份 Worker + MediaStore 写入与滚动清理）
 │   ├── html/      HtmlTimetableParser（教务网选课页 → 导入模型）
 │   └── importer/  XlsxParser / TextParsers(CSV,JSON) / OcrParser / ImportModels
 ├── remind/        ReminderScheduler / AlarmReceiver / BootReceiver / Notifier
 ├── ui/
-│   ├── MainActivity / AppNavHost（9 条路由：home / course / courses / slots / semesters / settings / holidays / import / webimport）
-│   ├── timetable/ TimetableScreen + TimetableViewModel（主页周网格）
-│   ├── course/    CourseEditScreen(编辑+底部弹层详情) / CourseListScreen
+│   ├── MainActivity(+MainViewModel) / AppNavHost（9 条路由：home / course / courses / slots / semesters / settings / holidays / import / webimport）
+│   ├── timetable/ TimetableScreen(骨架) / TimetableGrid+LessonCard(网格) / GridMetrics(字号与行高度量) / SemesterSwitchDialog / ShareImageSheet
+│   ├── course/    CourseEditScreen(表单) / CourseEditSheet(弹层+详情) / CourseEditFormParts / CourseListScreen(搜索)
 │   ├── importflow/ webimport/ semester/ slots/ settings/ holidays/
-│   ├── components/Common.kt（表单小组件）
-│   └── theme/     Theme.kt（品牌色） / HolidayBadgeColors.kt（徽章语义色）
-└── widget/        TodayWidget.kt（Glance 今日课程 + Receiver）
+│   ├── components/Common.kt（表单小组件）+ WeeksPicker
+│   └── theme/     Theme.kt(四主题×浅深配色) / HolidayBadgeColors.kt（徽章语义色）
+└── widget/        TodayWidget / WeekWidget / Widgets.updateAll(统一刷新入口)
 ```
 
 ## 3. 数据模型（Room v4）
@@ -62,24 +66,37 @@ app/src/main/java/com/balsam/timetable/
 - 触发时 `AlarmReceiver` 二次拦截放假日，触发后全量重排
 - 通知 id = 闹钟序号（0..49），**不要**用课程名哈希（同名课程互顶，v1.0 的坑）
 
-### 4.3 节假日/调休（`HolidayLogic` + `SettingsRepository`）
+### 4.3 节假日/调休（`HolidayLogic` + `SettingsRepository` + `HolidaySyncClient`）
 - DataStore 6 集合 + 1 映射：放假/调休各一套 `official / added / removed`，另 `makeup_weekdays`（"yyyy-MM-dd=4"）
 - **生效 = (官方 ∪ 手动) − 手动删**；同日期冲突放假优先；`makeup_weekdays` 只由用户写入
-- 在线同步：3 个 CDN 依次尝试 holiday-cn `{year}.json`（当年+次年），宽松递归解析（`isOffDay/holiday` 双字段名兼容），按年替换两个官方集合，每日限一次
+- 在线同步：`HolidaySyncClient` 依次尝试 3 个 CDN 的 holiday-cn `{year}.json`（当年+次年），宽松递归解析（`isOffDay/holiday` 双字段名兼容）；Repository 负责每日限次与按年替换官方集合
 - 预置：`DEFAULT_HOLIDAYS`（2026 放假 34 天）、`DEFAULT_MAKEUP_DAYS`（2026 调休 6 天），与 holiday-cn 2026.json 核对一致
 - 任何节假日写操作后必须 `reschedule()` + 刷新小组件（`HolidayViewModel.onDataChanged`）
 
 ### 4.4 数据变更联动
-`Graph.repository.onDataChanged = { reschedule(); widget.updateAll() }`；课程/学期数据变更、设置变更、节假日变更都走这条链路，防止闹钟/小组件与库内数据脱节。
+`Graph.repository.onDataChanged = { reschedule(); Widgets.updateAll() }`；课程/学期数据变更、设置变更、节假日变更都走这条链路（今日 + 周视图两个小组件一起刷），防止闹钟/小组件与库内数据脱节。
 
 ### 4.5 导入管线
 所有来源（xlsx/CSV/JSON/OCR/教务网）解析成统一导入模型（`ParsedEntry`，v1.2 起周次为集合）→ `ImportScreen` 预览（逐条勾选可编辑，周次编辑用 `WeeksPicker`）→ `TimetableRepository` 合并入库。新导入方式只需实现「来源 → 导入模型」的解析器。JSON 备份为 v2 双写格式（weeks 为主 + 旧区间字段推导），旧版本 App 可导入。
 
 ### 4.6 课表分享图片（`TimetableImageExporter`）
-Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、文字色按底色亮度自适应，**文字上对齐**）；经 FileProvider（`cache/share/`）走系统分享，MediaStore 保存相册（API 29+）。入口在课表页 ⋮ 菜单，弹层 `skipPartiallyExpanded` 打开即全展开。
+Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、文字色按底色亮度自适应，**文字上对齐**）；经 FileProvider（`cache/share/`）走系统分享，MediaStore 保存相册（API 29+）。入口在课表页 ⋮ 菜单，弹层 `skipPartiallyExpanded` 打开即全展开。**排版与配色固定**，不随字号/紧凑/主题设置变化。
 
-## 5. 测试
+### 4.7 显示设置（`GridMetrics` + `Theme.kt`，v1.3）
+- 设置项存 DataStore（`text_scale` / `compact_grid` / `color_theme`），枚举字符串名 + `from()` 兜底
+- `GridMetrics.of(TextScale, compact)` 集中生成网格行高与字号：字号档位影响文字（小 10/标准 12/大 14sp 基准），紧凑只压行高（×0.82）与留白，两者正交；WeekContent 的 layout `remember` 必须以 metrics 为 key
+- 主题每档浅/深两套 7 角色配色（primary 系 + secondary 系，其余 Material3 默认）；`TimetableTheme(colorTheme)` 在 MainActivity 最外层应用，`MainViewModel` 暴露 settings（首帧默认紫，加载后切换）
+- 课程色板 / 节假日徽章语义色 / 分享图不随主题；Glance 小组件用系统配色不随主题
 
-- `app/src/test`：HolidayLogicTest、WeekLogicTest、WeeksCodecTest（35 个，纯逻辑单测，无 Android 依赖）
-- **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / 解析器必须先补/改对应单测；数据迁移必须写转换函数单测
-- 模拟器冒烟：`timetable_test` AVD（x86_64，装 `app-universal-debug.apk`）；涉及 DB 迁移的版本要实测「装旧版 release → 覆盖升级 → 核对数据」
+### 4.8 自动备份（`data/backup/AutoBackup`，v1.3）
+- `AutoBackupWorker`（CoroutineWorker）每日周期任务，`Application` 启动按开关 `enqueueUniquePeriodicWork(KEEP)`；设置页可关（cancel）/「立即备份」（one-time 插队）
+- `backupNow`：当前学期 → `exportDoc` → JSON 写 `Documents/苦瓜课表/课程表备份-yyyyMMdd-HHmmss.json`；API 29+ MediaStore（免权限），26–28 应用外部私有目录兜底
+- 滚动保留最近 7 份（按时间倒序删旧）；成功写 `last_backup_time` 供设置页显示
+
+## 5. 测试与静态检查
+
+- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest（v1.3 共 81 个）
+- `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）
+- **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / 解析器 / 小组件数据构建必须先补/改对应单测；数据迁移必须写转换函数单测 + instrumented 迁移测试
+- lint：`:app:lintDebug` 纳入提交自查（错误零容忍）；detekt 因本机仅有 JDK 25/26 而 detekt 1.23.8 CLI 不支持，暂缓（见 TODO）
+- 模拟器冒烟：`timetable_test` AVD（x86_64，装 `app-universal-debug.apk`）；涉及 DB 迁移的版本要实测「装旧版 release → 覆盖升级 → 核对数据」；instrumented 测试遇 ABI 安装冲突加 `-PdisableSplits`

@@ -15,6 +15,7 @@ A fully offline Android course-schedule app. Import your timetable, then view an
   - Academic affairs import (needs network): opens your school's academic affairs website in an in-app WebView (defaults to Southwest Jiaotong University, changeable to any school), log in manually, open the "My Course Selection Records" or "This Semester's Timetable" page, and import with one tap. Compatible with http sub-sites and self-signed certificates of campus systems (a confirmation dialog appears on certificate errors); supports pinch-to-zoom; white screens caused by broken CSS height chains on some admin portals are auto-repaired
 - **Course management**: one course can have multiple time slots; **arbitrary week sets** (e.g. weeks "1-8, 11-16" — odd/even weeks are just quick presets); custom colors, teacher, room, and notes; time-conflict detection on save
 - **Timetable sharing**: render the current week to an image, save it to the gallery or share it with friends
+- **Display settings**: three text-size levels (stacks with the system font scale), a compact mode that squeezes row height without shrinking text, and four preset app themes (classic purple / indigo / pine green / rose pink) applied instantly — course colors and share images stay fixed
 - **Course search**: quick filtering by name / teacher / room on the course list page
 - **Class period times**: start/end time of every period is freely editable, with add/remove — adapts to any school's schedule
 - **Semester management**: multiple semesters, start date (drives week numbers), total weeks, set current / archive / delete; new semesters can copy the period table from an old one
@@ -24,7 +25,8 @@ A fully offline Android course-schedule app. Import your timetable, then view an
   - Alarms go through the `setAlarmClock` channel: immune to Doze batching and vendor battery saving, so the 8 a.m. reminder fires on time even overnight (a small alarm-clock icon appears in the status bar)
   - Notifications come with a heads-up banner, sound, and vibration (not silent)
   - Holidays & makeup workdays: calendar-based management (Settings → Holidays → calendar). Statutory holidays are marked 休 (red, no reminders that day); makeup workdays are marked 班 and remind according to the weekday you assign (default: the day's own weekday). Pre-seeded with the State Council's 2026 schedule (including 6 makeup workdays) and auto-synced online (holiday-cn source, fills in next year's schedule once published); your manual edits are never overwritten by the sync
-- **Home-screen widget**: today's courses, the current one highlighted, tap to open the app; shows "今天放假" on statutory holidays and follows the assigned weekday on makeup workdays
+- **Home-screen widgets**: "Today" widget — today's courses, the current one highlighted, tap to open the app; shows "今天放假" on statutory holidays and follows the assigned weekday on makeup workdays. "This week" widget (about 4×3) — one column per day with today highlighted, follows the "show weekend" setting
+- **Daily auto-backup**: the current semester is exported as JSON to Documents/苦瓜课表 once a day, keeping the latest 7 copies; can be turned off or triggered manually in Settings, entirely offline
 - **Dark mode**: Material 3 theme that follows the system dark mode
 - **JSON export**: backup / device migration
 
@@ -48,7 +50,7 @@ A fully offline Android course-schedule app. Import your timetable, then view an
 
 ## Tech Stack
 
-Kotlin · Jetpack Compose (Material 3) · Room · DataStore · Glance (widget) · ML Kit text recognition (offline model bundled) · Jsoup (academic affairs page parsing)
+Kotlin · Jetpack Compose (Material 3) · Room · DataStore · WorkManager (auto-backup) · Glance (widgets) · ML Kit text recognition (offline model bundled) · Jsoup (academic affairs page parsing) · Gradle version catalog + lint gate
 
 No account system; all data lives in the on-device database (`timetable.db`). The only network permission, `INTERNET`, is used exclusively by the "Academic Affairs Import" page (in-app WebView) — timetable data itself never leaves the device.
 
