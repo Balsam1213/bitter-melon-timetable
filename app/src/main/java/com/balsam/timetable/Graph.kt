@@ -11,7 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/** 轻量的全局依赖容器（无账号无联网，全部本机） */
+/** 轻量的全局依赖容器（无账号无联网，全部本机）；持有的是 applicationContext，无泄漏风险 */
+@android.annotation.SuppressLint("StaticFieldLeak")
 object Graph {
 
     lateinit var appContext: Context

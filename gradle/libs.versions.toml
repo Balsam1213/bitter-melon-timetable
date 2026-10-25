@@ -10,6 +10,7 @@ lifecycle = "2.11.0"
 navigationCompose = "2.10.1"
 room = "2.8.5"
 datastore = "1.2.1"
+exifinterface = "1.4.1"
 glance = "1.2.0"
 mlkitTextRecognition = "16.0.1"
 kotlinxSerializationJson = "1.11.0"
@@ -35,6 +36,7 @@ room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 mlkit-text-recognition-chinese = { group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "mlkitTextRecognition" }

@@ -86,6 +86,7 @@ fun CourseListScreen(onBack: () -> Unit) {
     val vm: CourseListViewModel = viewModel()
     val items by vm.items.collectAsStateWithLifecycle()
     val semester by vm.semester.collectAsStateWithLifecycle()
+    val query by vm.query.collectAsStateWithLifecycle()
     val totalWeeks = semester?.totalWeeks ?: 0
     var sheetCourseId by remember { mutableStateOf<Long?>(null) }
 
@@ -103,7 +104,7 @@ fun CourseListScreen(onBack: () -> Unit) {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
-                value = vm.query.collectAsStateWithLifecycle().value,
+                value = query,
                 onValueChange = { vm.query.value = it },
                 singleLine = true,
                 placeholder = { Text("搜索课程 / 教师 / 地点") },
@@ -118,7 +119,7 @@ fun CourseListScreen(onBack: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        if (vm.query.value.isBlank()) "当前学期还没有课程" else "没有匹配「${vm.query.value.trim()}」的课程",
+                        if (query.isBlank()) "当前学期还没有课程" else "没有匹配「${query.trim()}」的课程",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

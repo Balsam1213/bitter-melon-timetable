@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.balsam.timetable.Graph
@@ -66,8 +67,13 @@ class SettingsViewModel : ViewModel() {
             android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
+    // ACTION 常量编译期内联，低版本引用安全；该 Intent 只会在 31+ 的精确闹钟引导里使用
+    @android.annotation.SuppressLint("InlinedApi")
     fun requestExactAlarmIntent(): Intent =
-        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${Graph.appContext.packageName}"))
+        Intent(
+            Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+            "package:${Graph.appContext.packageName}".toUri(),
+        )
 
     fun notificationSettingsIntent(): Intent =
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)

@@ -230,15 +230,15 @@ class ImportViewModel : ViewModel() {
 
     private fun applyExifRotation(cr: android.content.ContentResolver, uri: Uri, bmp: Bitmap): Bitmap? {
         val orientation = cr.openInputStream(uri)?.use { stream ->
-            android.media.ExifInterface(stream).getAttributeInt(
-                android.media.ExifInterface.TAG_ORIENTATION,
-                android.media.ExifInterface.ORIENTATION_NORMAL,
+            androidx.exifinterface.media.ExifInterface(stream).getAttributeInt(
+                androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL,
             )
-        } ?: android.media.ExifInterface.ORIENTATION_NORMAL
+        } ?: androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
         val degrees = when (orientation) {
-            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
             else -> 0f
         }
         if (degrees == 0f) return null

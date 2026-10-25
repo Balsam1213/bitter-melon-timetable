@@ -27,9 +27,9 @@ internal fun LessonCard(
     lesson: Lesson,
     totalWeeks: Int,
     metrics: GridMetrics,
+    modifier: Modifier = Modifier,
     grey: Boolean = false,
     hint: String? = null,
-    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val color = Color(cwl.course.colorArgb.toInt())

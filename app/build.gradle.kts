@@ -78,6 +78,9 @@ dependencies {
 
     implementation(libs.datastore.preferences)
 
+    // 截图导入的 EXIF 方向读取（android.media 版在旧 API 上有历史 bug）
+    implementation(libs.androidx.exifinterface)
+
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
 

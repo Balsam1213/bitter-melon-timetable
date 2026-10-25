@@ -56,7 +56,7 @@ object TimetableImageExporter {
         val gridTop = TITLE_H + HEAD_H
         val gridH = rows * SLOT_H
         val h = (gridTop + gridH + FOOTER_H).roundToInt()
-        val bmp = Bitmap.createBitmap(W, h, Bitmap.Config.ARGB_8888)
+        val bmp = androidx.core.graphics.createBitmap(W, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         canvas.drawColor(BG.toInt())
         val weekStart = WeekLogic.weekMonday(semester.startDate, week)
