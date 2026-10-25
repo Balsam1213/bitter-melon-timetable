@@ -9,7 +9,7 @@
 | 语言 | Kotlin，Java 11 兼容 |
 | UI | Jetpack Compose + Material 3（固定品牌紫，不用动态取色） |
 | 架构 | 单模块 `:app`，MVVM（Screen + ViewModel + Repository），`Graph.kt` 手写 DI，无 Hilt |
-| 数据 | Room（`timetable.db`，version 3）+ DataStore Preferences（`settings`） |
+| 数据 | Room（`timetable.db`，version 4）+ DataStore Preferences（`settings`） |
 | 小组件 | Glance 1.2 |
 | OCR | ML Kit 中文识别（模型内置，ABI 拆分省体积） |
 | HTML 解析 | Jsoup（教务网导入） |
@@ -30,7 +30,7 @@ app/src/main/java/com/balsam/timetable/
 │   └── importer/  XlsxParser / TextParsers(CSV,JSON) / OcrParser / ImportModels
 ├── remind/        ReminderScheduler / AlarmReceiver / BootReceiver / Notifier
 ├── ui/
-│   ├── MainActivity / AppNavHost（7+1 路由）
+│   ├── MainActivity / AppNavHost（9 条路由：home / course / courses / slots / semesters / settings / holidays / import / webimport）
 │   ├── timetable/ TimetableScreen + TimetableViewModel（主页周网格）
 │   ├── course/    CourseEditScreen(编辑+底部弹层详情) / CourseListScreen
 │   ├── importflow/ webimport/ semester/ slots/ settings/ holidays/
