@@ -20,6 +20,8 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "1.2"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -34,14 +36,19 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-    // 按 CPU 架构拆分：手机装 arm64 包可省去其余三份 OCR 原生库（约省 30MB）
+    // 按 CPU 架构拆分：手机装 arm64 包可省去其余三份 OCR 原生库（约省 30MB）；
+    // 跑 instrumented 测试时可加 -PdisableSplits 规避模拟器 ABI 安装冲突
     splits {
         abi {
-            isEnable = true
+            isEnable = !project.hasProperty("disableSplits")
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
             isUniversalApk = true
         }
+    }
+    sourceSets {
+        // Room 迁移测试：MigrationTestHelper 从 androidTest assets 读 schema 历史存档
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -82,4 +89,8 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)
+
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

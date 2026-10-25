@@ -21,14 +21,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun lessonDao(): LessonDao
 
     companion object {
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+        // 迁移对象对迁移测试可见（androidTest 里 MigrationTestHelper 需要引用）
+        val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE time_slots ADD COLUMN isBreak INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         /** 删除手动标记的休息行（午休/晚休改为自动推导），并把节次重新连续编号 */
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("DELETE FROM time_slots WHERE isBreak = 1")
                 val cursor = db.query("SELECT DISTINCT semesterId FROM time_slots")
@@ -58,7 +59,7 @@ abstract class AppDatabase : RoomDatabase() {
          * 旧数据由 WeeksCodec.fromRange 逐行展开；顺带删除 time_slots 废弃的 isBreak 列。
          * 两个表都走「建新表 → 拷贝 → 删旧表 → 改名」（SQLite DROP COLUMN 版本兼容）。
          */
-        private val MIGRATION_3_4 = object : Migration(3, 4) {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS `lessons_new` (" +
