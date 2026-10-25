@@ -156,7 +156,7 @@ fun SettingsScreen(
             }
 
             SectionCard("关于") {
-                Text("苦瓜课表 v1.0", fontWeight = FontWeight.SemiBold)
+                Text("苦瓜课表 v${com.balsam.timetable.BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold)
                 Text(
                     "完全离线 · 无需登录 · 数据本地存储",
                     style = MaterialTheme.typography.bodySmall,

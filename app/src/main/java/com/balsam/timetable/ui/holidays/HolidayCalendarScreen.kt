@@ -55,6 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.HolidayCalendar
+import com.balsam.timetable.ui.theme.makeupDayBadgeColors
+import com.balsam.timetable.ui.theme.offDayBadgeColors
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -121,8 +123,6 @@ fun HolidayCalendarScreen(onBack: () -> Unit) {
                 .padding(horizontal = 12.dp),
         ) {
             MonthSwitcher(month = month, onChange = { month = it })
-
-            Legend()
 
             Row(Modifier.fillMaxWidth()) {
                 WEEK_HEADERS.forEach {
@@ -205,43 +205,16 @@ private fun MonthSwitcher(month: YearMonth, onChange: (YearMonth) -> Unit) {
 }
 
 @Composable
-private fun Legend() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-    ) {
-        Badge(text = "休", bg = MaterialTheme.colorScheme.errorContainer, fg = MaterialTheme.colorScheme.onErrorContainer)
-        Text("放假日 · 不提醒", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Badge(text = "班·四", bg = MaterialTheme.colorScheme.tertiaryContainer, fg = MaterialTheme.colorScheme.onTertiaryContainer)
-        Text("调休上班 · 按周几", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun Badge(text: String, bg: Color, fg: Color) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = fg,
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(bg)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-    )
-}
-
-@Composable
 private fun DayCell(date: LocalDate, calendar: HolidayCalendar, onClick: () -> Unit) {
     val today = remember { LocalDate.now() }
     val status = calendar.statusOf(date)
-    val (bg, fg) = when (status) {
-        DayStatus.Off -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        is DayStatus.Makeup -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        DayStatus.Normal -> Color.Transparent to MaterialTheme.colorScheme.onSurface
+    val badge = when (status) {
+        DayStatus.Off -> offDayBadgeColors()
+        is DayStatus.Makeup -> makeupDayBadgeColors()
+        DayStatus.Normal -> null
     }
+    val bg = badge?.bg ?: Color.Transparent
+    val fg = badge?.fg ?: MaterialTheme.colorScheme.onSurface
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -301,7 +274,7 @@ private fun DayEditSheet(
                 DayStatus.Off -> "法定放假日：当天不发课前提醒，小组件显示「今天放假」"
                 is DayStatus.Makeup ->
                     if (status.dow != null) "调休上班日：按${WEEK_HEADERS[status.dow - 1]}的课表提醒与显示"
-                    else "调休上班日：按当天（${WEEK_HEADERS[date.dayOfWeek.value - 1]}）的课表提醒与显示"
+                    else "调休上班日：默认按当天（${WEEK_HEADERS[date.dayOfWeek.value - 1]}）的课表提醒与显示"
                 DayStatus.Normal -> "普通日期"
             }
             Text(
@@ -326,7 +299,7 @@ private fun DayEditSheet(
             Spacer(Modifier.height(20.dp))
             Text("调休上班", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(
-                "周末补班日。选择按周几的课表上课，提醒与小组件都按该周几走：",
+                "周末补班日。选择按周几的课表上课（默认按当天），提醒与小组件都按该周几走：",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -338,7 +311,7 @@ private fun DayEditSheet(
             ) {
                 FilterChip(
                     selected = isMakeup && currentDow == null,
-                    label = { Text("按当天") },
+                    label = { Text("默认") },
                     onClick = {
                         if (isMakeup) vm.setMakeupDow(key, null) else vm.setDayStatus(key, DayStatus.Makeup(null))
                     },

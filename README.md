@@ -33,6 +33,11 @@ A fully offline Android course-schedule app. Import your timetable, then view an
 3. Adjust period start/end times in "Period Times" (10-period template by default)
 4. Reminder settings live in "Settings"; reminders can be turned off per course in the course editor
 
+## Project Docs (Chinese)
+
+- [开发日志](开发日志/) — changelog, backlog, and per-day dev logs
+- [docs/](docs/) — requirements, architecture, design specs, and workflow guides
+
 ## Build
 
 - Requirements: Android Studio (use its bundled JBR as the Gradle JDK), Android SDK

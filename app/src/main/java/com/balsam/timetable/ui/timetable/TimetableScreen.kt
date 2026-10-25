@@ -80,6 +80,8 @@ import com.balsam.timetable.data.model.DAY_LABELS
 import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.WeekLogic
 import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.ui.theme.makeupDayBadgeColors
+import com.balsam.timetable.ui.theme.offDayBadgeColors
 import com.balsam.timetable.ui.course.CourseEditSheet
 import com.balsam.timetable.ui.course.CourseEditViewModel
 import java.time.LocalDate
@@ -543,26 +545,32 @@ private fun WeekContent(
                             )
                             // 节假日「休」/ 调休「班」标记
                             when (val st = state.holidays.statusOf(date)) {
-                                DayStatus.Off -> Text(
-                                    "休",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier
-                                        .padding(start = 2.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(MaterialTheme.colorScheme.errorContainer)
-                                        .padding(horizontal = 3.dp),
-                                )
-                                is DayStatus.Makeup -> Text(
-                                    if (st.dow != null) "班·${DAY_LABELS[st.dow - 1].removePrefix("周")}" else "班",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    modifier = Modifier
-                                        .padding(start = 2.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
-                                        .padding(horizontal = 3.dp),
-                                )
+                                DayStatus.Off -> {
+                                    val c = offDayBadgeColors()
+                                    Text(
+                                        "休",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = c.fg,
+                                        modifier = Modifier
+                                            .padding(start = 2.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(c.bg)
+                                            .padding(horizontal = 3.dp),
+                                    )
+                                }
+                                is DayStatus.Makeup -> {
+                                    val c = makeupDayBadgeColors()
+                                    Text(
+                                        if (st.dow != null) "班·${DAY_LABELS[st.dow - 1].removePrefix("周")}" else "班",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = c.fg,
+                                        modifier = Modifier
+                                            .padding(start = 2.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(c.bg)
+                                            .padding(horizontal = 3.dp),
+                                    )
+                                }
                                 DayStatus.Normal -> Unit
                             }
                         }
