@@ -10,9 +10,8 @@ interface LessonLike {
     val dayOfWeek: Int
     val startSlot: Int
     val endSlot: Int
-    val startWeek: Int
-    val endWeek: Int
-    val pattern: WeekPattern
+    /** 上课周次集合（任意周集合，如 1-8,11-16） */
+    val weekSet: Set<Int>
 }
 
 object WeekLogic {
@@ -37,28 +36,14 @@ object WeekLogic {
     fun weekMonday(startDate: String, week: Int): LocalDate =
         mondayOf(parseDate(startDate)).plusWeeks((week - 1).toLong())
 
-    fun lessonActive(week: Int, startWeek: Int, endWeek: Int, pattern: WeekPattern): Boolean {
-        if (week < startWeek || week > endWeek) return false
-        return when (pattern) {
-            WeekPattern.EVERY -> true
-            WeekPattern.ODD -> week % 2 == 1
-            WeekPattern.EVEN -> week % 2 == 0
-        }
-    }
+    /** 某周是否有这节课 */
+    fun lessonActive(week: Int, weekSet: Set<Int>): Boolean = week in weekSet
 
-    /** 两个时间段是否在某个周次真实重叠（同星期、节次相交、周次相交且单双周兼容） */
+    /** 两个时间段是否真实重叠（同星期、节次相交、周集合有交集） */
     fun conflicts(a: LessonLike, b: LessonLike): Boolean {
         if (a.dayOfWeek != b.dayOfWeek) return false
         if (a.startSlot > b.endSlot || b.startSlot > a.endSlot) return false
-        if (a.startWeek > b.endWeek || b.startWeek > a.endWeek) return false
-        val lo = maxOf(a.startWeek, b.startWeek)
-        val hi = minOf(a.endWeek, b.endWeek)
-        for (w in lo..hi) {
-            if (lessonActive(w, a.startWeek, a.endWeek, a.pattern) &&
-                lessonActive(w, b.startWeek, b.endWeek, b.pattern)
-            ) return true
-        }
-        return false
+        return a.weekSet.any { it in b.weekSet }
     }
 }
 

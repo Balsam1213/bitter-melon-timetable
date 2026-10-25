@@ -5,6 +5,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+ksp {
+    // Room schema 历史存档（app/schemas），供迁移测试与版本对比
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.balsam.timetable"
     compileSdk = 37
@@ -13,8 +18,8 @@ android {
         applicationId = "com.balsam.timetable"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     buildTypes {

@@ -46,6 +46,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -57,12 +58,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -79,11 +82,13 @@ import com.balsam.timetable.data.db.TimeSlot
 import com.balsam.timetable.data.model.DAY_LABELS
 import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.WeekLogic
-import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 import com.balsam.timetable.ui.theme.makeupDayBadgeColors
 import com.balsam.timetable.ui.theme.offDayBadgeColors
 import com.balsam.timetable.ui.course.CourseEditSheet
 import com.balsam.timetable.ui.course.CourseEditViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -163,6 +168,9 @@ private fun ReadyHome(
     var semesterDialog by remember { mutableStateOf(false) }
     var sheetCourseId by remember { mutableStateOf<Long?>(null) }
     var sheetPrefill by remember { mutableStateOf<CourseEditViewModel.LessonPrefill?>(null) }
+    var shareFile by remember { mutableStateOf<java.io.File?>(null) }
+    val shareScope = androidx.compose.runtime.rememberCoroutineScope()
+    val shareContext = androidx.compose.ui.platform.LocalContext.current
 
     Scaffold(
         topBar = {
@@ -234,6 +242,19 @@ private fun ReadyHome(
                             Icon(Icons.Default.MoreVert, contentDescription = "菜单")
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("分享课表图片") },
+                                onClick = {
+                                    menuOpen = false
+                                    shareScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val bmp = TimetableImageExporter.render(
+                                            state.semester, state.slots, state.courses,
+                                            state.week, state.showWeekend, state.today,
+                                        )
+                                        shareFile = TimetableImageExporter.writePng(shareContext, bmp)
+                                    }
+                                },
+                            )
                             DropdownMenuItem(text = { Text("导入课表") }, onClick = { menuOpen = false; onOpenImport() })
                             DropdownMenuItem(
                                 text = { Text("添加课程") },
@@ -320,6 +341,10 @@ private fun ReadyHome(
                 sheetPrefill = null
             },
         )
+    }
+
+    shareFile?.let { file ->
+        ShareImageSheet(file = file, onDismiss = { shareFile = null })
     }
 }
 
@@ -743,7 +768,7 @@ private fun WeekContent(
                                     dayEntries.add(
                                         LessonRef(
                                             cwl, l,
-                                            WeekLogic.lessonActive(week, l.startWeek, l.endWeek, l.pattern),
+                                            WeekLogic.lessonActive(week, l.weekSet),
                                         )
                                     )
                                 }
@@ -860,7 +885,7 @@ private fun WeekContent(
                                 Text(
                                     "${DAY_LABELS.getOrElse(ref.lesson.dayOfWeek - 1) { "" }} " +
                                         "第${ref.lesson.startSlot}-${ref.lesson.endSlot}节 · " +
-                                        "${ref.lesson.startWeek}-${ref.lesson.endWeek}周 ${ref.lesson.pattern.label}",
+                                        (WeeksCodec.label(ref.lesson.weekSet, totalWeeks) ?: "全学期"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -907,19 +932,7 @@ private fun LessonCard(
     }
     val spans = lesson.endSlot - lesson.startSlot + 1
     val compact = spans <= 1
-    val weekLabel = when {
-        lesson.pattern == WeekPattern.EVERY && lesson.startWeek <= 1 && lesson.endWeek >= totalWeeks -> null
-        else -> buildString {
-            if (lesson.startWeek > 1 || lesson.endWeek < totalWeeks) {
-                append("${lesson.startWeek}-${lesson.endWeek}周")
-            }
-            when (lesson.pattern) {
-                WeekPattern.ODD -> append(" 单周")
-                WeekPattern.EVEN -> append(" 双周")
-                WeekPattern.EVERY -> Unit
-            }
-        }.trim()
-    }
+    val weekLabel = WeeksCodec.label(lesson.weekSet, totalWeeks)
     Column(
         modifier
             .clip(RoundedCornerShape(if (compact) 7.dp else 8.dp))
@@ -951,7 +964,10 @@ private fun LessonCard(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (weekLabel != null && (!compact || lesson.pattern != WeekPattern.EVERY)) {
+        // 单节小卡只在带单双周信息时才挤得下周次标签
+        val showWeek = weekLabel != null &&
+            (!compact || weekLabel.contains("单周") || weekLabel.contains("双周"))
+        if (showWeek) {
             Text(
                 weekLabel,
                 fontSize = 9.sp,
@@ -971,6 +987,76 @@ private fun LessonCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+/** 分享课表图片弹层：预览 + 保存到相册 / 系统分享 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShareImageSheet(file: java.io.File, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val bitmap = remember(file) { android.graphics.BitmapFactory.decodeFile(file.absolutePath) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text("分享课表图片", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(12.dp))
+            if (bitmap != null) {
+                androidx.compose.foundation.Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "课表图片预览",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(12.dp),
+                        ),
+                )
+            }
+            message?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = {
+                        message = if (bitmap != null && TimetableImageExporter.saveToGallery(context, bitmap)) {
+                            "已保存到相册（Pictures/苦瓜课表）"
+                        } else {
+                            "此系统版本不支持直接保存，请用「分享」发送"
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("保存到相册") }
+                OutlinedButton(
+                    onClick = {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            context, context.packageName + ".fileprovider", file,
+                        )
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "image/png"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(intent, "分享课表图片"))
+                    },
+                    modifier = Modifier.weight(1f),
+                ) { Text("分享") }
+            }
         }
     }
 }

@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Relation
 import com.balsam.timetable.data.model.LessonLike
 import com.balsam.timetable.data.model.ReminderMode
-import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 
 @Entity(tableName = "semesters")
 data class Semester(
@@ -27,8 +27,6 @@ data class TimeSlot(
     val orderIndex: Int,
     val startTime: String,
     val endTime: String,
-    /** 已废弃：午休/晚休改为由上下午课间空档自动推导，此字段恒为 false（保留以兼容 v2 库） */
-    val isBreak: Boolean = false,
 )
 
 @Entity(tableName = "courses")
@@ -49,12 +47,11 @@ data class Lesson(
     override val dayOfWeek: Int,
     override val startSlot: Int,
     override val endSlot: Int,
-    override val startWeek: Int,
-    override val endWeek: Int,
-    val weekPattern: String = WeekPattern.EVERY.name,
+    /** 上课周次集合，升序逗号分隔（"1,2,...,8,11"）；解析见 WeeksCodec */
+    val weeks: String,
     val location: String = "",
 ) : LessonLike {
-    override val pattern: WeekPattern get() = WeekPattern.from(weekPattern)
+    override val weekSet: Set<Int> get() = WeeksCodec.parse(weeks)
 }
 
 data class CourseWithLessons(

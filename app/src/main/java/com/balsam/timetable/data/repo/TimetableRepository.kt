@@ -11,6 +11,7 @@ import com.balsam.timetable.data.importer.ParsedEntry
 import com.balsam.timetable.data.model.CourseColors
 import com.balsam.timetable.data.model.LessonLike
 import com.balsam.timetable.data.model.WeekLogic
+import com.balsam.timetable.data.model.WeeksCodec
 import kotlinx.coroutines.flow.Flow
 
 class TimetableRepository(private val db: AppDatabase) {
@@ -188,6 +189,8 @@ class TimetableRepository(private val db: AppDatabase) {
             db.timeSlotDao().insertAll(toAdd)
         }
         var colorIdx = db.courseDao().bySemesterOnce(semesterId).size
+        val semester = db.semesterDao().byId(semesterId)
+        val totalWeeks = semester?.totalWeeks ?: 0
         val grouped = valid.groupBy { it.name.trim() to it.teacher.trim() }
         grouped.forEach { (_, group) ->
             val first = group.first()
@@ -200,14 +203,14 @@ class TimetableRepository(private val db: AppDatabase) {
                 )
             )
             db.lessonDao().insertAll(group.map { e ->
+                // 超出学期总周数的部分收敛掉（导入预览编辑时给的是 20 周上限）
+                val clamped = if (totalWeeks > 0) e.weeks.filter { it <= totalWeeks }.toSet() else e.weeks
                 Lesson(
                     courseId = courseId,
                     dayOfWeek = e.dayOfWeek,
                     startSlot = e.startSlot,
                     endSlot = maxOf(e.startSlot, e.endSlot),
-                    startWeek = e.startWeek,
-                    endWeek = maxOf(e.startWeek, e.endWeek),
-                    weekPattern = e.weekPattern.name,
+                    weeks = WeeksCodec.format(clamped.ifEmpty { e.weeks }),
                     location = e.location.trim(),
                 )
             })
@@ -243,16 +246,14 @@ class TimetableRepository(private val db: AppDatabase) {
             slots = slots.map { com.balsam.timetable.data.importer.ExportSlot(it.startTime, it.endTime) },
             entries = courses.flatMap { cwl ->
                 cwl.lessons.map { l ->
-                    com.balsam.timetable.data.importer.ExportEntry(
+                    com.balsam.timetable.data.importer.ExportEntry.fromWeeks(
                         name = cwl.course.name,
                         teacher = cwl.course.teacher,
                         location = l.location,
                         day = l.dayOfWeek,
                         startSlot = l.startSlot,
                         endSlot = l.endSlot,
-                        startWeek = l.startWeek,
-                        endWeek = l.endWeek,
-                        pattern = l.weekPattern,
+                        weekSet = l.weekSet,
                     )
                 }
             },

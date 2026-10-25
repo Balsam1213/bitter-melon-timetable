@@ -76,7 +76,7 @@ class ReminderScheduler {
                     ) continue
                     for (lesson in cwl.lessons) {
                         if (lesson.dayOfWeek != dow) continue
-                        if (!WeekLogic.lessonActive(week, lesson.startWeek, lesson.endWeek, lesson.pattern)) continue
+                        if (!WeekLogic.lessonActive(week, lesson.weekSet)) continue
                         val startSlot = slots.getOrNull(lesson.startSlot - 1) ?: continue
                         val startAt = date.atTime(
                             runCatching { LocalTime.parse(startSlot.startTime) }.getOrDefault(LocalTime.of(8, 0))

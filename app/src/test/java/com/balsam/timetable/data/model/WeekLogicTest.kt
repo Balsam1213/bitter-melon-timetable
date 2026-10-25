@@ -36,56 +36,53 @@ class WeekLogicTest {
     }
 
     @Test
-    fun `lessonActive 区间与单双周`() {
-        assertTrue(WeekLogic.lessonActive(3, 1, 10, WeekPattern.EVERY))
-        assertFalse(WeekLogic.lessonActive(11, 1, 10, WeekPattern.EVERY))
-        assertTrue(WeekLogic.lessonActive(3, 1, 10, WeekPattern.ODD))
-        assertFalse(WeekLogic.lessonActive(4, 1, 10, WeekPattern.ODD))
-        assertTrue(WeekLogic.lessonActive(4, 1, 10, WeekPattern.EVEN))
-        assertFalse(WeekLogic.lessonActive(3, 1, 10, WeekPattern.EVEN))
+    fun `lessonActive 集合判断`() {
+        val weeks = setOf(1, 2, 3, 5, 8, 11)
+        assertTrue(WeekLogic.lessonActive(5, weeks))
+        assertFalse(WeekLogic.lessonActive(4, weeks))
+        assertFalse(WeekLogic.lessonActive(20, weeks))
+        assertFalse(WeekLogic.lessonActive(3, emptySet()))
     }
 
     private data class L(
         override val dayOfWeek: Int,
         override val startSlot: Int,
         override val endSlot: Int,
-        override val startWeek: Int,
-        override val endWeek: Int,
-        override val pattern: WeekPattern,
+        override val weekSet: Set<Int>,
     ) : LessonLike
 
     @Test
-    fun `conflicts 同星期同节次同周次`() {
-        val a = L(1, 1, 2, 1, 16, WeekPattern.EVERY)
-        val b = L(1, 2, 3, 8, 16, WeekPattern.EVERY)
+    fun `conflicts 同星期同节次周集合相交`() {
+        val a = L(1, 1, 2, (1..16).toSet())
+        val b = L(1, 2, 3, (8..16).toSet())
         assertTrue(WeekLogic.conflicts(a, b))
     }
 
     @Test
     fun `conflicts 异星期或相邻节次不冲突`() {
-        val a = L(1, 1, 2, 1, 16, WeekPattern.EVERY)
+        val a = L(1, 1, 2, (1..16).toSet())
         assertFalse(WeekLogic.conflicts(a, a.copy(dayOfWeek = 2)))
         assertFalse(WeekLogic.conflicts(a, a.copy(startSlot = 3, endSlot = 4)))
     }
 
     @Test
-    fun `conflicts 周次不相交不冲突`() {
-        val a = L(1, 1, 2, 1, 8, WeekPattern.EVERY)
-        val b = L(1, 1, 2, 9, 16, WeekPattern.EVERY)
+    fun `conflicts 周集合不相交不冲突`() {
+        val a = L(1, 1, 2, (1..8).toSet())
+        val b = L(1, 1, 2, (9..16).toSet())
         assertFalse(WeekLogic.conflicts(a, b))
     }
 
     @Test
     fun `conflicts 单双周互补不冲突`() {
-        val odd = L(1, 1, 2, 1, 16, WeekPattern.ODD)
-        val even = L(1, 1, 2, 1, 16, WeekPattern.EVEN)
+        val odd = L(1, 1, 2, (1..16).filter { it % 2 == 1 }.toSet())
+        val even = L(1, 1, 2, (1..16).filter { it % 2 == 0 }.toSet())
         assertFalse(WeekLogic.conflicts(odd, even))
     }
 
     @Test
-    fun `conflicts 部分周次重叠即冲突`() {
-        val a = L(3, 3, 4, 1, 10, WeekPattern.EVERY)
-        val b = L(3, 4, 5, 6, 16, WeekPattern.ODD) // 第 7、9 周双方都上且节次相交
+    fun `conflicts 跳周集合部分相交即冲突`() {
+        val a = L(3, 3, 4, setOf(1, 2, 3, 5, 6, 7, 9))
+        val b = L(3, 4, 5, setOf(7, 9, 11, 13)) // 第 7、9 周双方都上且节次相交
         assertTrue(WeekLogic.conflicts(a, b))
     }
 }

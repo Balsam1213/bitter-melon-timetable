@@ -1,6 +1,7 @@
 package com.balsam.timetable.data.importer
 
 import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 import com.google.mlkit.vision.text.Text
 import kotlin.math.abs
 
@@ -177,9 +178,7 @@ object OcrParser {
                         dayOfWeek = day,
                         startSlot = startSlot,
                         endSlot = endSlot,
-                        startWeek = g[1].toIntOrNull() ?: 1,
-                        endWeek = g[2].toIntOrNull() ?: 17,
-                        weekPattern = WeekPattern.EVERY,
+                        weeks = WeeksCodec.fromRange(g[1].toIntOrNull() ?: 1, g[2].toIntOrNull() ?: 17, WeekPattern.EVERY),
                     )
                 )
             }
@@ -500,9 +499,7 @@ object OcrParser {
             dayOfWeek = day,
             startSlot = startSlot,
             endSlot = maxOf(startSlot, endSlot),
-            startWeek = startWeek,
-            endWeek = maxOf(startWeek, endWeek),
-            weekPattern = pattern,
+            weeks = WeeksCodec.fromRange(startWeek, maxOf(startWeek, endWeek), pattern),
         )
     }
 
@@ -524,8 +521,7 @@ object OcrParser {
                 it.dayOfWeek == e.dayOfWeek &&
                     similarNames(it.name, e.name) &&
                     e.startSlot <= it.endSlot + 1 &&
-                    it.startWeek == e.startWeek && it.endWeek == e.endWeek &&
-                    it.weekPattern == e.weekPattern
+                    it.weeks == e.weeks
             }
             if (prev != null) {
                 result[result.indexOf(prev)] = prev.copy(

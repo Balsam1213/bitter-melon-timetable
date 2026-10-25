@@ -177,9 +177,10 @@ object HtmlTimetableParser {
             dayOfWeek = day,
             startSlot = startSlot,
             endSlot = endSlot,
-            startWeek = g[1].toIntOrNull() ?: 1,
-            endWeek = g[2].toIntOrNull() ?: 17,
-            weekPattern = com.balsam.timetable.data.model.WeekPattern.EVERY,
+            weeks = com.balsam.timetable.data.model.WeeksCodec.fromRange(
+                g[1].toIntOrNull() ?: 1, g[2].toIntOrNull() ?: 17,
+                com.balsam.timetable.data.model.WeekPattern.EVERY,
+            ),
         )
     }
 }

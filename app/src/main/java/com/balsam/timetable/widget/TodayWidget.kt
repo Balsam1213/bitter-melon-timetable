@@ -81,7 +81,8 @@ class TodayWidget : GlanceAppWidget() {
         val semester = Graph.repository.currentSemesterOnce()
             ?: return WidgetData("未设置学期", "", emptyList(), "先在应用里设置学期")
         val today = LocalDate.now()
-        val dateLabel = today.format(DateTimeFormatter.ofPattern("M月d日 EEEE"))
+        // 固定中文 locale：小组件文案全中文，避免英文系统下「10月25日 Sunday」混排
+        val dateLabel = today.format(DateTimeFormatter.ofPattern("M月d日 EEEE").withLocale(java.util.Locale.CHINESE))
         val holidayCal = Graph.settingsRepository.holidayCalendarOnce()
         if (holidayCal.isOff(today)) {
             val week = WeekLogic.weekOf(today, semester.startDate, semester.totalWeeks)
@@ -102,7 +103,7 @@ class TodayWidget : GlanceAppWidget() {
 
         val rows = courses.flatMap { cwl ->
             cwl.lessons.filter {
-                it.dayOfWeek == dow && WeekLogic.lessonActive(week, it.startWeek, it.endWeek, it.pattern)
+                it.dayOfWeek == dow && WeekLogic.lessonActive(week, it.weekSet)
             }.map { lesson ->
                 val start = numbered.getOrNull(lesson.startSlot - 1)
                 val end = numbered.getOrNull(lesson.endSlot - 1)

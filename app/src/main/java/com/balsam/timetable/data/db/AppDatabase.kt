@@ -6,11 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.balsam.timetable.data.model.WeekPattern
+import com.balsam.timetable.data.model.WeeksCodec
 
 @Database(
     entities = [Semester::class, TimeSlot::class, Course::class, Lesson::class],
-    version = 3,
-    exportSchema = false,
+    version = 4,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun semesterDao(): SemesterDao
@@ -51,9 +53,70 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v4：课程周次从「区间 + 每周/单周/双周」改为任意周集合单列（lessons.weeks），
+         * 旧数据由 WeeksCodec.fromRange 逐行展开；顺带删除 time_slots 废弃的 isBreak 列。
+         * 两个表都走「建新表 → 拷贝 → 删旧表 → 改名」（SQLite DROP COLUMN 版本兼容）。
+         */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `lessons_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`courseId` INTEGER NOT NULL, " +
+                        "`dayOfWeek` INTEGER NOT NULL, " +
+                        "`startSlot` INTEGER NOT NULL, " +
+                        "`endSlot` INTEGER NOT NULL, " +
+                        "`weeks` TEXT NOT NULL, " +
+                        "`location` TEXT NOT NULL)",
+                )
+                val cursor = db.query(
+                    "SELECT id, courseId, dayOfWeek, startSlot, endSlot, startWeek, endWeek, weekPattern, location FROM lessons",
+                )
+                val insert = db.compileStatement(
+                    "INSERT INTO lessons_new (id, courseId, dayOfWeek, startSlot, endSlot, weeks, location) VALUES (?,?,?,?,?,?,?)",
+                )
+                while (cursor.moveToNext()) {
+                    val weeks = WeeksCodec.format(
+                        WeeksCodec.fromRange(
+                            cursor.getInt(5),
+                            cursor.getInt(6),
+                            WeekPattern.from(cursor.getString(7)),
+                        ),
+                    )
+                    insert.bindLong(1, cursor.getLong(0))
+                    insert.bindLong(2, cursor.getLong(1))
+                    insert.bindLong(3, cursor.getLong(2))
+                    insert.bindLong(4, cursor.getLong(3))
+                    insert.bindLong(5, cursor.getLong(4))
+                    insert.bindString(6, weeks)
+                    insert.bindString(7, cursor.getString(8) ?: "")
+                    insert.executeInsert()
+                }
+                cursor.close()
+                db.execSQL("DROP TABLE lessons")
+                db.execSQL("ALTER TABLE lessons_new RENAME TO lessons")
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `time_slots_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`semesterId` INTEGER NOT NULL, " +
+                        "`orderIndex` INTEGER NOT NULL, " +
+                        "`startTime` TEXT NOT NULL, " +
+                        "`endTime` TEXT NOT NULL)",
+                )
+                db.execSQL(
+                    "INSERT INTO time_slots_new (id, semesterId, orderIndex, startTime, endTime) " +
+                        "SELECT id, semesterId, orderIndex, startTime, endTime FROM time_slots",
+                )
+                db.execSQL("DROP TABLE time_slots")
+                db.execSQL("ALTER TABLE time_slots_new RENAME TO time_slots")
+            }
+        }
+
         fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "timetable.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

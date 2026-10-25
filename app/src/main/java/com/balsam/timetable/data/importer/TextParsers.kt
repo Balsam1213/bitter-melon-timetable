@@ -180,7 +180,7 @@ object RowMapper {
         val slots = TextParsers.rangeIn(cell(r, col.slot)) ?: (1 to 1)
         val startW = cell(r, col.startWeek).toIntOrNull()
         val endW = cell(r, col.endWeek).toIntOrNull()
-        val weeks = when {
+        val weekRange = when {
             startW != null && endW != null -> startW to endW
             startW != null -> startW to startW
             endW != null -> endW to endW
@@ -193,9 +193,9 @@ object RowMapper {
             dayOfWeek = day,
             startSlot = slots.first,
             endSlot = slots.second,
-            startWeek = weeks.first,
-            endWeek = weeks.second,
-            weekPattern = TextParsers.pattern(cell(r, col.pattern)),
+            weeks = com.balsam.timetable.data.model.WeeksCodec.fromRange(
+                weekRange.first, weekRange.second, TextParsers.pattern(cell(r, col.pattern)),
+            ),
         )
     }
 
