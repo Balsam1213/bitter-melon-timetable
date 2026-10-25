@@ -153,16 +153,18 @@ private fun WeekContent(
     onOpenCourse: (Long) -> Unit,
     onAddAt: (CourseEditViewModel.LessonPrefill) -> Unit,
 ) {
-    val slotHeight = 56.dp
-    val bandHeight = 34.dp
-    val timeColWidth = 44.dp
+    val metrics = GridMetrics.of(state.textScale, state.compactGrid)
+    val slotHeight = metrics.slotHeight
+    val bandHeight = metrics.bandHeight
+    val timeColWidth = metrics.timeColWidth
     val days = if (state.showWeekend) 7 else 5
     val weekStart: LocalDate = WeekLogic.weekMonday(state.semester.startDate, week)
     val todayDow = state.today.dayOfWeek.value
     val totalWeeks = state.semester.totalWeeks
 
     val rows = remember(state.slots) { buildGridRows(state.slots) }
-    val layout = remember(rows) {
+    // metrics 变化（切字号/紧凑）必须重建行高布局，否则网格不重排
+    val layout = remember(rows, metrics) {
         val slotY = mutableMapOf<Int, Dp>()
         val bands = mutableListOf<Triple<Dp, Dp, GridRow.Break>>()
         var y = 0.dp
@@ -456,6 +458,7 @@ private fun WeekContent(
                                 cwl = rep.cwl,
                                 lesson = rep.lesson,
                                 totalWeeks = totalWeeks,
+                                metrics = metrics,
                                 grey = !rep.active,
                                 hint = hint.ifEmpty { null },
                                 modifier = Modifier

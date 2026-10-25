@@ -17,6 +17,24 @@ enum class ReminderMode(val label: String) {
     }
 }
 
+/** 课表字号档位（sp 本身跟随系统缩放，这是应用内额外放大） */
+enum class TextScale(val label: String) {
+    SMALL("小"), STANDARD("标准"), LARGE("大");
+
+    companion object {
+        fun from(s: String?): TextScale = entries.firstOrNull { it.name == s } ?: STANDARD
+    }
+}
+
+/** 预设应用主题（品牌默认经典紫；不做任意取色） */
+enum class ColorTheme(val label: String) {
+    PURPLE("经典紫"), BLUE("靛蓝"), GREEN("松绿"), PINK("玫粉");
+
+    companion object {
+        fun from(s: String?): ColorTheme = entries.firstOrNull { it.name == s } ?: PURPLE
+    }
+}
+
 val DAY_LABELS = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
 
 object CourseColors {
@@ -42,4 +60,7 @@ data class AppSettings(
     val leadMinutes: Int = 15,
     val showWeekend: Boolean = true,
     val holidaySkipEnabled: Boolean = true,
+    val textScale: TextScale = TextScale.STANDARD,
+    val compactGrid: Boolean = false,
+    val colorTheme: ColorTheme = ColorTheme.PURPLE,
 )

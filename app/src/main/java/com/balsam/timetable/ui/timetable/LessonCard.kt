@@ -20,12 +20,13 @@ import com.balsam.timetable.data.db.CourseWithLessons
 import com.balsam.timetable.data.db.Lesson
 import com.balsam.timetable.data.model.WeeksCodec
 
-/** 周网格里的课程色块卡片：颜色自适应文字、单节小卡压缩排版 */
+/** 周网格里的课程色块卡片：颜色自适应文字、单节小卡压缩排版；字号随显示设置 */
 @Composable
 internal fun LessonCard(
     cwl: CourseWithLessons,
     lesson: Lesson,
     totalWeeks: Int,
+    metrics: GridMetrics,
     grey: Boolean = false,
     hint: String? = null,
     modifier: Modifier = Modifier,
@@ -52,13 +53,13 @@ internal fun LessonCard(
             .clip(RoundedCornerShape(if (compact) 7.dp else 8.dp))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (compact) 4.dp else 5.dp, vertical = 3.dp),
+            .padding(horizontal = metrics.cardPaddingH, vertical = metrics.cardPaddingV),
     ) {
         Text(
             cwl.course.name,
             fontWeight = FontWeight.Bold,
-            fontSize = if (compact) 10.sp else 12.sp,
-            lineHeight = if (compact) 12.sp else 14.sp,
+            fontSize = if (compact) metrics.nameCompactSp else metrics.nameSp,
+            lineHeight = if (compact) metrics.nameCompactLineHeight else metrics.nameLineHeight,
             color = onColor,
             maxLines = when {
                 hint != null && compact -> 2
@@ -71,8 +72,8 @@ internal fun LessonCard(
         if (lesson.location.isNotBlank() && (!compact || cwl.course.name.length <= 5)) {
             Text(
                 lesson.location,
-                fontSize = 9.sp,
-                lineHeight = 10.sp,
+                fontSize = metrics.subSp,
+                lineHeight = metrics.subLineHeight,
                 color = onColor.copy(alpha = 0.88f),
                 maxLines = if (compact) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
@@ -84,8 +85,8 @@ internal fun LessonCard(
         if (showWeek) {
             Text(
                 weekLabel,
-                fontSize = 9.sp,
-                lineHeight = 10.sp,
+                fontSize = metrics.subSp,
+                lineHeight = metrics.subLineHeight,
                 color = onColor.copy(alpha = 0.88f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -94,8 +95,8 @@ internal fun LessonCard(
         if (hint != null) {
             Text(
                 hint,
-                fontSize = 9.sp,
-                lineHeight = 10.sp,
+                fontSize = metrics.subSp,
+                lineHeight = metrics.subLineHeight,
                 fontWeight = FontWeight.SemiBold,
                 color = onColor,
                 maxLines = 1,

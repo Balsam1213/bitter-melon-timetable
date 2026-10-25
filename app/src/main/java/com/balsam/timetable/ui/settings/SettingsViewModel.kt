@@ -9,7 +9,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.balsam.timetable.Graph
 import com.balsam.timetable.data.model.AppSettings
+import com.balsam.timetable.data.model.ColorTheme
 import com.balsam.timetable.data.model.HolidayCalendar
+import com.balsam.timetable.data.model.TextScale
 import com.balsam.timetable.data.repo.DEFAULT_HOLIDAYS
 import com.balsam.timetable.data.repo.DEFAULT_MAKEUP_DAYS
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,12 @@ class SettingsViewModel : ViewModel() {
     }
 
     fun setShowWeekend(v: Boolean) = viewModelScope.launch { settingsRepo.setShowWeekend(v) }
+
+    fun setTextScale(v: TextScale) = viewModelScope.launch { settingsRepo.setTextScale(v) }
+
+    fun setCompactGrid(v: Boolean) = viewModelScope.launch { settingsRepo.setCompactGrid(v) }
+
+    fun setColorTheme(v: ColorTheme) = viewModelScope.launch { settingsRepo.setColorTheme(v) }
 
     // 日历管理页（节假日/调休的增删、同步）在 ui/holidays，有自己的 ViewModel
     val holidayCalendar: StateFlow<HolidayCalendar> = settingsRepo.holidayCalendar

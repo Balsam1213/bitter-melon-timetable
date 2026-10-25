@@ -2,7 +2,9 @@ package com.balsam.timetable.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,12 +12,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,11 +38,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.balsam.timetable.data.model.ColorTheme
+import com.balsam.timetable.data.model.TextScale
+import com.balsam.timetable.ui.theme.primarySwatchOf
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,6 +146,56 @@ fun SettingsScreen(
                         checked = settings?.showWeekend ?: true,
                         onCheckedChange = { vm.setShowWeekend(it) },
                     )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("课表字号", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TextScale.entries.forEach { ts ->
+                        FilterChip(
+                            selected = settings?.textScale == ts,
+                            onClick = { vm.setTextScale(ts) },
+                            label = { Text(ts.label) },
+                        )
+                    }
+                }
+                Text(
+                    "和系统字体缩放叠加生效，调大后每格能放下的文字会变少",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("紧凑课表", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "压缩行高和留白，一屏看到更多节次",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = settings?.compactGrid ?: false,
+                        onCheckedChange = { vm.setCompactGrid(it) },
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("应用主题", fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ColorTheme.entries.forEach { t ->
+                        FilterChip(
+                            selected = settings?.colorTheme == t,
+                            onClick = { vm.setColorTheme(t) },
+                            label = { Text(t.label) },
+                            leadingIcon = {
+                                Box(
+                                    Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(primarySwatchOf(t)),
+                                )
+                            },
+                        )
+                    }
                 }
             }
 

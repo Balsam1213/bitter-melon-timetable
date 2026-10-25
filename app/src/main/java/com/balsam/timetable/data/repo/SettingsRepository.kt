@@ -12,11 +12,13 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.balsam.timetable.data.holiday.HolidaySyncClient
 import com.balsam.timetable.data.model.AppSettings
+import com.balsam.timetable.data.model.ColorTheme
 import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.HolidayCalendar
 import com.balsam.timetable.data.model.HolidayFetch
 import com.balsam.timetable.data.model.HolidayLogic
 import com.balsam.timetable.data.model.HolidayStore
+import com.balsam.timetable.data.model.TextScale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -68,6 +70,9 @@ class SettingsRepository(private val context: Context) {
         val SHOW_WEEKEND = booleanPreferencesKey("show_weekend")
         val NOTIF_ASKED = booleanPreferencesKey("notification_asked")
         val HOLIDAY_SKIP = booleanPreferencesKey("holiday_skip_enabled")
+        val TEXT_SCALE = stringPreferencesKey("text_scale")
+        val COMPACT_GRID = booleanPreferencesKey("compact_grid")
+        val COLOR_THEME = stringPreferencesKey("color_theme")
         val HOLIDAY_OFFICIAL = stringSetPreferencesKey("holiday_official")
         val HOLIDAY_ADDED = stringSetPreferencesKey("holiday_added")
         val HOLIDAY_REMOVED = stringSetPreferencesKey("holiday_removed")
@@ -93,6 +98,9 @@ class SettingsRepository(private val context: Context) {
             leadMinutes = p[Keys.LEAD_MINUTES] ?: 15,
             showWeekend = p[Keys.SHOW_WEEKEND] ?: false,
             holidaySkipEnabled = p[Keys.HOLIDAY_SKIP] ?: true,
+            textScale = TextScale.from(p[Keys.TEXT_SCALE]),
+            compactGrid = p[Keys.COMPACT_GRID] ?: false,
+            colorTheme = ColorTheme.from(p[Keys.COLOR_THEME]),
         )
     }
 
@@ -101,6 +109,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setReminderEnabled(v: Boolean) = context.settingsStore.edit { it[Keys.REMINDER_ENABLED] = v }
     suspend fun setLeadMinutes(v: Int) = context.settingsStore.edit { it[Keys.LEAD_MINUTES] = v }
     suspend fun setShowWeekend(v: Boolean) = context.settingsStore.edit { it[Keys.SHOW_WEEKEND] = v }
+    suspend fun setTextScale(v: TextScale) = context.settingsStore.edit { it[Keys.TEXT_SCALE] = v.name }
+    suspend fun setCompactGrid(v: Boolean) = context.settingsStore.edit { it[Keys.COMPACT_GRID] = v }
+    suspend fun setColorTheme(v: ColorTheme) = context.settingsStore.edit { it[Keys.COLOR_THEME] = v.name }
 
     // 节假日 = (官方列表 ∪ 用户手动添加) − 用户手动删除；调休同理，且与放假冲突时放假优先。
     // 官方列表：从未同步过时用预置的 2026 官方安排；联网同步成功后按年替换。

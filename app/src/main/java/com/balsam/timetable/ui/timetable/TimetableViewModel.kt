@@ -8,6 +8,7 @@ import com.balsam.timetable.data.db.Semester
 import com.balsam.timetable.data.db.TimeSlot
 import com.balsam.timetable.data.model.AppSettings
 import com.balsam.timetable.data.model.HolidayCalendar
+import com.balsam.timetable.data.model.TextScale
 import com.balsam.timetable.data.model.WeekLogic
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,8 @@ class TimetableViewModel : ViewModel() {
             val showWeekend: Boolean,
             val today: LocalDate,
             val holidays: HolidayCalendar = HolidayCalendar(),
+            val textScale: TextScale = TextScale.STANDARD,
+            val compactGrid: Boolean = false,
         ) : UiState
     }
 
@@ -59,7 +62,11 @@ class TimetableViewModel : ViewModel() {
                     val today = LocalDate.now()
                     val todayWeek = WeekLogic.weekOf(today, semester.startDate, semester.totalWeeks)
                     val week = selWeek ?: todayWeek ?: 1
-                    UiState.Ready(semester, slots, courses, week, todayWeek, settings.showWeekend, today, holidays)
+                    UiState.Ready(
+                        semester, slots, courses, week, todayWeek,
+                        settings.showWeekend, today, holidays,
+                        settings.textScale, settings.compactGrid,
+                    )
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState.Loading)
