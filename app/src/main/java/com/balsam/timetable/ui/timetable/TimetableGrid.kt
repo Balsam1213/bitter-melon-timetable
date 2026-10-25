@@ -71,7 +71,7 @@ internal data class LessonRef(val cwl: CourseWithLessons, val lesson: Lesson, va
 /** 网格行：普通节次行，或由上下午课间空档推导出的午休/晚休带 */
 internal sealed interface GridRow {
     data class Slot(val slot: TimeSlot) : GridRow
-    data class Break(val label: String, val range: String) : GridRow
+    data class Break(val label: String) : GridRow
 }
 
 /** 按开始时间划分上午(<12点)/下午(12-18点)/晚上(≥18点)，组间空档生成午休/晚休带 */
@@ -85,11 +85,11 @@ internal fun buildGridRows(slots: List<TimeSlot>): List<GridRow> {
     val rows = mutableListOf<GridRow>()
     morning.forEach { rows.add(GridRow.Slot(it)) }
     if (morning.isNotEmpty() && afternoon.isNotEmpty()) {
-        rows.add(GridRow.Break("午休", "${morning.last().endTime} - ${afternoon.first().startTime}"))
+        rows.add(GridRow.Break("午休"))
     }
     afternoon.forEach { rows.add(GridRow.Slot(it)) }
     if (afternoon.isNotEmpty() && evening.isNotEmpty()) {
-        rows.add(GridRow.Break("晚休", "${afternoon.last().endTime} - ${evening.first().startTime}"))
+        rows.add(GridRow.Break("晚休"))
     }
     evening.forEach { rows.add(GridRow.Slot(it)) }
     return rows
@@ -273,52 +273,50 @@ private fun WeekContent(
                 Column(Modifier.width(timeColWidth)) {
                     rows.forEach { r ->
                         when (r) {
-                            is GridRow.Slot -> Column(
+                            // 节次号不独占一行：号在左垂直居中，起止时间在右两行，
+                            // 保证紧凑模式（行高 46dp）下时间列也完整可见
+                            is GridRow.Slot -> Row(
                                 Modifier
                                     .height(slotHeight)
                                     .fillMaxWidth()
                                     .padding(horizontal = 1.dp, vertical = 3.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     "${r.slot.orderIndex}",
                                     fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.labelMedium,
                                 )
-                                Text(
-                                    r.slot.startTime,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                )
-                                Text(
-                                    r.slot.endTime,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                )
+                                Spacer(Modifier.width(2.dp))
+                                Column {
+                                    Text(
+                                        r.slot.startTime,
+                                        fontSize = 9.sp,
+                                        lineHeight = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                    Text(
+                                        r.slot.endTime,
+                                        fontSize = 9.sp,
+                                        lineHeight = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
                             }
-                            is GridRow.Break -> Column(
+                            is GridRow.Break -> Box(
                                 Modifier
                                     .height(bandHeight)
                                     .fillMaxWidth()
                                     .padding(vertical = 3.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     r.label,
                                     fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    r.range,
-                                    fontSize = 8.sp,
-                                    lineHeight = 9.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
                                 )
                             }
                         }

@@ -4,7 +4,7 @@
 
 ## v1.3（2026-10-25 已完成）
 
-- [x] 课表显示设置：字号三档 / 紧凑模式 / 预设四主题（经典紫·靛蓝·松绿·玫粉）
+- [x] 课表显示设置：字号三档 / 紧凑模式 / 预设四主题（兰紫·靛蓝·松绿·玫粉）
 - [x] 周视图小组件（第二个小组件，4×3，一天一列）
 - [x] 拆分 `TimetableScreen.kt` 与 `CourseEditScreen.kt`（五种形态分文件）
 - [x] `SettingsRepository` 的节假日网络同步抽到 `HolidaySyncClient`

@@ -7,7 +7,7 @@
 | 层 | 选型 |
 |---|---|
 | 语言 | Kotlin，Java 11 兼容 |
-| UI | Jetpack Compose + Material 3（预设四主题，默认经典紫，不用动态取色） |
+| UI | Jetpack Compose + Material 3（预设四主题，默认兰紫，不用动态取色） |
 | 架构 | 单模块 `:app`，MVVM（Screen + ViewModel + Repository），`Graph.kt` 手写 DI，无 Hilt |
 | 数据 | Room（`timetable.db`，version 4）+ DataStore Preferences（`settings`） |
 | 小组件 | Glance 1.2（今日课程 + 周视图） |

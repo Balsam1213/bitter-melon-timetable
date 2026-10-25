@@ -115,7 +115,7 @@ private val themes = mapOf(
 fun primarySwatchOf(theme: ColorTheme): Color =
     themes[theme]?.lightPrimary ?: Purple.lightPrimary
 
-/** 预设主题（默认经典紫），不用动态取色，保证品牌观感一致 */
+/** 预设主题（默认兰紫），不用动态取色，保证品牌观感一致 */
 @Composable
 fun TimetableTheme(
     colorTheme: ColorTheme = ColorTheme.PURPLE,

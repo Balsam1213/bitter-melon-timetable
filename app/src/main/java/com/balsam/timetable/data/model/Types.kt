@@ -26,9 +26,9 @@ enum class TextScale(val label: String) {
     }
 }
 
-/** 预设应用主题（品牌默认经典紫；不做任意取色） */
+/** 预设应用主题（默认兰紫；不做任意取色）。档位名统一两字，保证设置页 chips 排版均衡 */
 enum class ColorTheme(val label: String) {
-    PURPLE("经典紫"), BLUE("靛蓝"), GREEN("松绿"), PINK("玫粉");
+    PURPLE("兰紫"), BLUE("靛蓝"), GREEN("松绿"), PINK("玫粉");
 
     companion object {
         fun from(s: String?): ColorTheme = entries.firstOrNull { it.name == s } ?: PURPLE
