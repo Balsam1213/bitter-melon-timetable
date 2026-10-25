@@ -5,7 +5,7 @@ import com.balsam.timetable.data.db.AppDatabase
 import com.balsam.timetable.data.repo.SettingsRepository
 import com.balsam.timetable.data.repo.TimetableRepository
 import com.balsam.timetable.remind.ReminderScheduler
-import com.balsam.timetable.widget.TodayWidget
+import com.balsam.timetable.widget.Widgets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,7 +36,7 @@ object Graph {
 
         repository.onDataChanged = {
             reminderScheduler.reschedule()
-            TodayWidget().updateAll(appContext)
+            Widgets.updateAll(appContext)
         }
     }
 
