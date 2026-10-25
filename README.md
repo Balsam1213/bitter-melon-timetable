@@ -35,7 +35,7 @@ A fully offline Android course-schedule app. Import your timetable, then view an
 
 ## Project Docs (Chinese)
 
-- [开发日志](开发日志/) — changelog, backlog, and per-day dev logs
+- [Devlog & TODO](devlog/) — changelog, backlog, and per-day dev logs (Chinese)
 - [docs/](docs/) — requirements, architecture, design specs, and workflow guides
 
 ## Build
