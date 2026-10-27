@@ -1,6 +1,8 @@
 package com.balsam.timetable.data.importer
 
+import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class JsonImporterTest {
@@ -94,5 +96,36 @@ class JsonImporterTest {
         // 无法精确反推单双周 → EVERY 超集近似；round trip 后集合不丢
         assertEquals("EVERY", entry.pattern)
         assertEquals((1..8).toSet() + (11..16).toSet(), entry.toParsedEntry().weeks)
+    }
+
+    // ---------------- 异常输入 ----------------
+
+    @Test(expected = SerializationException::class)
+    fun `格式错误的 JSON 抛出解析异常`() {
+        JsonImporter.parse("{ 这不是 JSON ")
+    }
+
+    @Test(expected = SerializationException::class)
+    fun `空文件抛出解析异常`() {
+        JsonImporter.parse("")
+    }
+
+    @Test(expected = SerializationException::class)
+    fun `缺少 semester 必填字段抛出解析异常`() {
+        JsonImporter.parse("""{"entries": []}""")
+    }
+
+    @Test
+    fun `未知字段被忽略不报错`() {
+        val doc = JsonImporter.parse(
+            """
+            {
+              "semester": { "name": "测试学期", "startDate": "2026-09-07", "totalWeeks": 16 },
+              "unknownTopLevel": 1,
+              "entries": [ { "name": "兼容课", "day": 1, "startSlot": 1, "endSlot": 2, "extra": "x" } ]
+            }
+            """.trimIndent(),
+        )
+        assertEquals(1, doc.entries.size)
     }
 }

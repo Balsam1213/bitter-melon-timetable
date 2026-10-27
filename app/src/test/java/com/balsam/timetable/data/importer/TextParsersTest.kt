@@ -3,6 +3,7 @@ package com.balsam.timetable.data.importer
 import com.balsam.timetable.data.model.WeekPattern
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TextParsersTest {
@@ -105,6 +106,11 @@ class TextParsersTest {
     }
 
     @Test
+    fun `decodeBytes 空字节数组返回空串`() {
+        assertEquals("", TextParsers.decodeBytes(ByteArray(0)))
+    }
+
+    @Test
     fun `decodeBytes GBK 兜底`() {
         // 教务系统导出常见 GBK：按 UTF-8 解出乱码（\uFFFD）时回落 GBK
         val gbk = "高等数学".toByteArray(java.nio.charset.Charset.forName("GBK"))
@@ -150,6 +156,11 @@ class TextParsersTest {
     @Test
     fun `parseCsv 制表符分隔`() {
         assertEquals(listOf(listOf("周一", "1-2")), TextParsers.parseCsv("周一\t1-2"))
+    }
+
+    @Test
+    fun `parseCsv 空文本返回空表`() {
+        assertTrue(TextParsers.parseCsv("").isEmpty())
     }
 
     @Test

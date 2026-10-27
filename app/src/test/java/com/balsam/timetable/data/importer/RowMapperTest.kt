@@ -110,4 +110,49 @@ class RowMapperTest {
     fun `空表无条目`() {
         assertTrue(RowMapper.fromRows(emptyList()).isEmpty())
     }
+
+    @Test
+    fun `空字节 CSV 返回空条目`() {
+        assertTrue(CsvImporter.parse(ByteArray(0)).isEmpty())
+    }
+
+    @Test
+    fun `仅表头无数据行返回空`() {
+        val rows = listOf(listOf("星期", "节次", "课程名称"))
+        assertTrue(RowMapper.fromRows(rows).isEmpty())
+    }
+
+    @Test
+    fun `行末缺列不崩溃缺省为空`() {
+        val rows = listOf(
+            listOf("星期", "节次", "课程名称", "教师", "地点", "开始周", "结束周", "单双周"),
+            listOf("周一", "1-2", "高等数学"), // 教师/地点/周次列缺失
+        )
+        val entries = RowMapper.fromRows(rows)
+        assertEquals(1, entries.size)
+        assertEquals("", entries.first().teacher)
+        assertEquals("", entries.first().location)
+        // 已知兜底口径：周次列缺失时从节次列推导区间（此处 1-2 节 → 1-2 周）
+        assertEquals(setOf(1, 2), entries.first().weeks)
+    }
+
+    @Test
+    fun `周次区间倒序按最小最大归一`() {
+        val rows = listOf(
+            listOf("星期", "节次", "课程名称", "教师", "地点", "开始周", "结束周"),
+            listOf("周一", "1-2", "高等数学", "王老师", "A101", "16", "1"),
+        )
+        val entries = RowMapper.fromRows(rows)
+        assertEquals((1..16).toSet(), entries.first().weeks)
+    }
+
+    @Test
+    fun `负数与超大周次按区间归一入库前再由学期收敛`() {
+        val rows = listOf(
+            listOf("星期", "节次", "课程名称", "教师", "地点", "开始周", "结束周"),
+            listOf("周一", "1-2", "高等数学", "王老师", "A101", "-1", "999"),
+        )
+        val entries = RowMapper.fromRows(rows)
+        assertEquals((1..999).toSet(), entries.first().weeks)
+    }
 }
