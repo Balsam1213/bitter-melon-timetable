@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.balsam.timetable.data.importer.ImportPlanner
 import com.balsam.timetable.data.importer.ParsedEntry
 import com.balsam.timetable.data.model.DAY_LABELS
 import com.balsam.timetable.data.model.WeekLogic
@@ -236,9 +237,13 @@ fun ImportScreen(
                 }
                 Spacer(Modifier.height(6.dp))
                 var editingIndex by remember { mutableStateOf<Int?>(null) }
+                val reasons = remember(state.entries, state.totalWeeks) {
+                    state.entries.map { ImportPlanner.validate(it, state.totalWeeks) }
+                }
                 state.entries.forEachIndexed { i, e ->
                     EntryRow(
                         entry = e,
+                        reason = reasons[i],
                         onToggle = { vm.toggleInclude(i) },
                         onEdit = { editingIndex = i },
                     )
@@ -261,6 +266,7 @@ fun ImportScreen(
                 editingIndex?.let { idx ->
                     EntryEditDialog(
                         entry = state.entries[idx],
+                        totalWeeks = state.totalWeeks,
                         onDismiss = { editingIndex = null },
                         onSave = {
                             vm.updateEntry(idx, it)
@@ -385,7 +391,7 @@ private fun SourceCard(
 }
 
 @Composable
-private fun EntryRow(entry: ParsedEntry, onToggle: () -> Unit, onEdit: () -> Unit) {
+private fun EntryRow(entry: ParsedEntry, reason: String?, onToggle: () -> Unit, onEdit: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -404,6 +410,13 @@ private fun EntryRow(entry: ParsedEntry, onToggle: () -> Unit, onEdit: () -> Uni
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            reason?.let {
+                Text(
+                    "⚠ $it，已默认不勾选；可点击修改或手动勾选",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 }
@@ -411,6 +424,7 @@ private fun EntryRow(entry: ParsedEntry, onToggle: () -> Unit, onEdit: () -> Uni
 @Composable
 private fun EntryEditDialog(
     entry: ParsedEntry,
+    totalWeeks: Int,
     onDismiss: () -> Unit,
     onSave: (ParsedEntry) -> Unit,
 ) {
@@ -440,8 +454,8 @@ private fun EntryEditDialog(
                     SlotDropdown(endSlot, slotCount) { v -> endSlot = v; if (startSlot > v) startSlot = v }
                 }
                 Spacer(Modifier.height(6.dp))
-                // 编辑时尚未确定目标学期周数，给足上限；导入入库时会按学期总周数收敛
-                WeeksPicker(selected = weeks, totalWeeks = 20, onChange = { weeks = it })
+                // 周数用目标学期的真实值；入库时仍会按学期总周数兜底收敛
+                WeeksPicker(selected = weeks, totalWeeks = totalWeeks, onChange = { weeks = it })
             }
         },
         confirmButton = {

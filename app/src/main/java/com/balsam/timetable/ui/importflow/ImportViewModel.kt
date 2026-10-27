@@ -52,6 +52,8 @@ class ImportViewModel : ViewModel() {
         val error: String? = null,
         val importResult: com.balsam.timetable.data.importer.ImportResult? = null,
         val pendingNewSemester: SemesterDraft? = null,
+        /** 目标学期周数（JSON 取内嵌值，其余取当前学期或 20），预览页逐条校验用 */
+        val totalWeeks: Int = 20,
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -83,6 +85,12 @@ class ImportViewModel : ViewModel() {
         }
     }.getOrNull()
 
+    /** 装载预览条目：无效条目默认不勾选（预览页逐条标注原因，用户可改字段后手动勾选） */
+    private fun loadedEntries(entries: List<ParsedEntry>, totalWeeks: Int): List<ParsedEntry> =
+        entries.map { if (ImportPlanner.validate(it, totalWeeks) != null) it.copy(include = false) else it }
+
+    private suspend fun targetTotalWeeks(): Int = Graph.repository.currentSemesterOnce()?.totalWeeks ?: 20
+
     fun parseFile(bytes: ByteArray, fileName: String) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(busy = true, error = null, importResult = null)
@@ -95,14 +103,20 @@ class ImportViewModel : ViewModel() {
                         _ui.value = UiState(
                             sourceLabel = "JSON 文件",
                             jsonDoc = doc,
-                            entries = doc.entries.map { it.toParsedEntry() },
+                            entries = loadedEntries(doc.entries.map { it.toParsedEntry() }, doc.semester.totalWeeks),
+                            totalWeeks = doc.semester.totalWeeks,
                         )
                     }
                     lower.endsWith(".xlsx") -> {
                         val entries = withContext(Dispatchers.Default) {
                             RowMapper.fromRows(XlsxParser.parse(bytes))
                         }
-                        _ui.value = UiState(sourceLabel = "Excel 文件", entries = entries)
+                        val weeks = targetTotalWeeks()
+                        _ui.value = UiState(
+                            sourceLabel = "Excel 文件",
+                            entries = loadedEntries(entries, weeks),
+                            totalWeeks = weeks,
+                        )
                         check(entries.isNotEmpty()) { "没有解析出课程，请按模板格式填写（列：星期、节次、课程…）" }
                     }
                     lower.endsWith(".xls") -> {
@@ -110,7 +124,12 @@ class ImportViewModel : ViewModel() {
                     }
                     else -> {
                         val entries = CsvImporter.parse(bytes)
-                        _ui.value = UiState(sourceLabel = "CSV 文件", entries = entries)
+                        val weeks = targetTotalWeeks()
+                        _ui.value = UiState(
+                            sourceLabel = "CSV 文件",
+                            entries = loadedEntries(entries, weeks),
+                            totalWeeks = weeks,
+                        )
                         check(entries.isNotEmpty()) { "没有解析出课程，请按模板格式填写（列：星期、节次、课程…）" }
                     }
                 }
@@ -138,7 +157,7 @@ class ImportViewModel : ViewModel() {
                     }
                 }
                 // 识别默认周次跟随当前学期总周数（无学期时按自动新建的 20 周）
-                val totalWeeks = Graph.repository.currentSemesterOnce()?.totalWeeks ?: 20
+                val totalWeeks = targetTotalWeeks()
                 val adjusted = entries.map { e ->
                     if (e.weeks == (1..16).toSet()) {
                         e.copy(weeks = (1..totalWeeks).toSet())
@@ -146,7 +165,11 @@ class ImportViewModel : ViewModel() {
                         e
                     }
                 }
-                _ui.value = UiState(sourceLabel = "图片识别", entries = adjusted)
+                _ui.value = UiState(
+                    sourceLabel = "图片识别",
+                    entries = loadedEntries(adjusted, totalWeeks),
+                    totalWeeks = totalWeeks,
+                )
                 check(adjusted.isNotEmpty()) { "没有识别出课程，请换一张更清晰的课表截图" }
             } catch (e: OcrParser.OcrParseException) {
                 _ui.value = UiState(error = e.message)
@@ -169,7 +192,14 @@ class ImportViewModel : ViewModel() {
 
     /** 教务网导入等外部来源：直接装载解析结果进入预览 */
     fun loadExternal(entries: List<com.balsam.timetable.data.importer.ParsedEntry>) {
-        _ui.value = UiState(sourceLabel = "教务网导入", entries = entries)
+        viewModelScope.launch {
+            val weeks = targetTotalWeeks()
+            _ui.value = UiState(
+                sourceLabel = "教务网导入",
+                entries = loadedEntries(entries, weeks),
+                totalWeeks = weeks,
+            )
+        }
     }
 
     fun confirmImport() {

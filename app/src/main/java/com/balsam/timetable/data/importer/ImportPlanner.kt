@@ -107,8 +107,8 @@ object ImportPlanner {
         )
     }
 
-    /** 返回 null 表示合法。周次全超界判无效，不再像旧逻辑那样原样保留（永不发生的死课） */
-    private fun validate(e: ParsedEntry, totalWeeks: Int): String? {
+    /** 返回 null 表示合法（预览页也用它逐条标注问题）。周次全超界判无效，不再像旧逻辑那样原样保留（永不发生的死课） */
+    fun validate(e: ParsedEntry, totalWeeks: Int): String? {
         if (e.name.isBlank()) return REASON_NO_NAME
         if (e.dayOfWeek !in 1..7) return REASON_BAD_DAY
         if (e.startSlot < 1 || e.endSlot < e.startSlot) return REASON_BAD_SLOT
