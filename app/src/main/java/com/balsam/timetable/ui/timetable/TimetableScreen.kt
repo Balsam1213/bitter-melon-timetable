@@ -88,14 +88,22 @@ private fun EmptyHome(onOpenImport: () -> Unit, onOpenSemesters: () -> Unit) {
         Text("欢迎来到苦瓜课表", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "完全离线、无需登录。先创建一个学期开始使用，或直接导入课表文件。",
+            "完全离线、无需登录。三步开始使用：",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "1. 导入课表（没有学期会先帮你建一个，开学日期可核对）\n" +
+                "2. 核对开学日期与节次时间\n" +
+                "3. 在设置里打开课前提醒",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onOpenSemesters) { Text("创建学期") }
+        Button(onClick = onOpenImport) { Text("导入课表") }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onOpenImport) { Text("导入课表") }
+        OutlinedButton(onClick = onOpenSemesters) { Text("先创建学期") }
     }
 }
 

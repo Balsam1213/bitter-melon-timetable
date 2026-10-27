@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,16 +26,20 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.data.importer.ParsedEntry
 import com.balsam.timetable.data.model.DAY_LABELS
+import com.balsam.timetable.data.model.WeekLogic
 import com.balsam.timetable.data.model.WeeksCodec
 import com.balsam.timetable.ui.components.DayDropdown
 import com.balsam.timetable.ui.components.SlotDropdown
@@ -254,7 +260,98 @@ fun ImportScreen(
                     )
                 }
             }
+            state.pendingNewSemester?.let { draft ->
+                NewSemesterDialog(
+                    draft = draft,
+                    onDismiss = { vm.dismissNewSemester() },
+                    onConfirm = { vm.confirmNewSemesterAndImport(it) },
+                )
+            }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** 首次导入没有学期时：先核对学期信息再建（开学日期决定周次与提醒，不能静默拍脑袋） */
+@Composable
+private fun NewSemesterDialog(
+    draft: ImportViewModel.SemesterDraft,
+    onDismiss: () -> Unit,
+    onConfirm: (ImportViewModel.SemesterDraft) -> Unit,
+) {
+    var name by remember { mutableStateOf(draft.name) }
+    var startDate by remember { mutableStateOf(draft.startDate) }
+    var totalWeeks by remember { mutableStateOf(draft.totalWeeks.toString()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("先建个学期") },
+        text = {
+            Column {
+                Text(
+                    "还没有学期，课程需要归属到某个学期。开学日期决定「今天是第几周」，请核对：",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("学期名称") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("第1周周一：", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = { showDatePicker = true }) { Text(startDate) }
+                }
+                Text(
+                    "开学那天或其所在周的周一为第1周起点",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("总周数：", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(
+                        value = totalWeeks,
+                        onValueChange = { v -> if (v.all(Char::isDigit) && v.length <= 2) totalWeeks = v },
+                        modifier = Modifier.width(80.dp),
+                        singleLine = true,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = name.isNotBlank() && totalWeeks.toIntOrNull()?.let { it in 1..40 } == true,
+                onClick = { onConfirm(ImportViewModel.SemesterDraft(name.trim(), startDate, totalWeeks.toIntOrNull() ?: 20)) },
+            ) { Text("创建并导入") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+
+    if (showDatePicker) {
+        val initial = runCatching { WeekLogic.parseDate(startDate) }.getOrDefault(java.time.LocalDate.now())
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initial.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { ms ->
+                        val d = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                        startDate = WeekLogic.mondayOf(d).toString()
+                    }
+                    showDatePicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("取消") } },
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }

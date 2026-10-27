@@ -36,6 +36,13 @@ class ImportViewModel : ViewModel() {
     /** true = 从「新建学期」流程进入，导入必须落到当前学期（忽略文件内嵌的学期元数据） */
     var freshSemester: Boolean = false
 
+    /** 导入前临时确认的学期信息：无学期时先让用户核对，避免静默用「本周一」当开学日 */
+    data class SemesterDraft(
+        val name: String,
+        val startDate: String,
+        val totalWeeks: Int,
+    )
+
     data class UiState(
         val busy: Boolean = false,
         val sourceLabel: String? = null,
@@ -43,6 +50,7 @@ class ImportViewModel : ViewModel() {
         val jsonDoc: ExportDoc? = null,
         val error: String? = null,
         val importResult: com.balsam.timetable.data.importer.ImportResult? = null,
+        val pendingNewSemester: SemesterDraft? = null,
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -188,16 +196,20 @@ class ImportViewModel : ViewModel() {
                 } else {
                     var sem = repo.currentSemesterOnce()
                     if (sem == null) {
-                        repo.createSemester(
-                            name = semesterNameSuggestion(LocalDate.now()),
-                            startDate = WeekLogic.mondayOf(LocalDate.now()).toString(),
-                            totalWeeks = 20,
-                            setCurrent = true,
+                        // 首次导入没有学期：弹窗让用户核对学期信息后再建，
+                        // 不再静默用「本周一」当开学日（那会让周次与提醒全错位）
+                        _ui.value = _ui.value.copy(
+                            busy = false,
+                            pendingNewSemester = SemesterDraft(
+                                name = semesterNameSuggestion(LocalDate.now()),
+                                startDate = WeekLogic.mondayOf(LocalDate.now()).toString(),
+                                totalWeeks = 20,
+                            ),
                         )
-                        sem = repo.currentSemesterOnce()
+                        return@launch
                     }
                     repo.importEntries(
-                        sem?.id ?: throw IllegalStateException("学期创建失败"),
+                        sem.id,
                         _ui.value.entries,
                         clearExisting = false,
                     )
@@ -207,6 +219,26 @@ class ImportViewModel : ViewModel() {
                 _ui.value = _ui.value.copy(busy = false, error = "导入失败：${e.message ?: e.javaClass.simpleName}")
             }
         }
+    }
+
+    /** 用户在「先建个学期」弹窗里确认后：建学期并继续导入所选条目 */
+    fun confirmNewSemesterAndImport(draft: SemesterDraft) {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(busy = true, pendingNewSemester = null)
+            try {
+                repo.createSemester(draft.name.trim(), draft.startDate, draft.totalWeeks, setCurrent = true)
+                val sem = repo.currentSemesterOnce() ?: throw IllegalStateException("学期创建失败")
+                val result = repo.importEntries(sem.id, _ui.value.entries, clearExisting = false)
+                _ui.value = _ui.value.copy(busy = false, importResult = result)
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(busy = false, error = "导入失败：${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    /** 取消「先建个学期」弹窗，回到预览页（条目保留，可改完再导） */
+    fun dismissNewSemester() {
+        _ui.value = _ui.value.copy(pendingNewSemester = null)
     }
 
     private fun decodeSampled(uri: Uri, maxDim: Int = 2048): Bitmap? {
