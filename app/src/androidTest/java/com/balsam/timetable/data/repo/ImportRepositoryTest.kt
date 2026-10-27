@@ -101,9 +101,13 @@ class ImportRepositoryTest {
             clearExisting = false,
         )
         assertEquals(1, result.importedCourses)
-        assertEquals(2, result.invalid.size)
+        assertEquals(3, result.invalid.size)
         assertEquals(
-            setOf(ImportPlanner.REASON_BAD_DAY, ImportPlanner.REASON_WEEKS_OUT_OF_RANGE),
+            setOf(
+                ImportPlanner.REASON_BAD_DAY,
+                ImportPlanner.REASON_NO_NAME,
+                ImportPlanner.REASON_WEEKS_OUT_OF_RANGE,
+            ),
             result.invalid.map { it.reason }.toSet(),
         )
         assertEquals(1, courseCount())
