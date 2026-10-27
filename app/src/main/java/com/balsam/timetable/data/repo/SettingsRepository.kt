@@ -75,6 +75,8 @@ class SettingsRepository(private val context: Context) {
         val COLOR_THEME = stringPreferencesKey("color_theme")
         val AUTO_BACKUP = booleanPreferencesKey("auto_backup_enabled")
         val LAST_BACKUP_TIME = longPreferencesKey("last_backup_time")
+        /** 最近一次备份成功与否；null = 旧版本写入（只记成功）或从未备份 */
+        val LAST_BACKUP_OK = booleanPreferencesKey("last_backup_ok")
         val HOLIDAY_OFFICIAL = stringSetPreferencesKey("holiday_official")
         val HOLIDAY_ADDED = stringSetPreferencesKey("holiday_added")
         val HOLIDAY_REMOVED = stringSetPreferencesKey("holiday_removed")
@@ -117,11 +119,21 @@ class SettingsRepository(private val context: Context) {
     suspend fun setColorTheme(v: ColorTheme) = context.settingsStore.edit { it[Keys.COLOR_THEME] = v.name }
     suspend fun setAutoBackupEnabled(v: Boolean) = context.settingsStore.edit { it[Keys.AUTO_BACKUP] = v }
 
-    /** 最近一次自动/手动备份完成的时刻（epoch 毫秒）；从未备份返回 null */
+    /** 最近一次自动/手动备份的时刻（epoch 毫秒）；从未备份返回 null */
     val lastBackupTime: Flow<Long?> = context.settingsStore.data.map { p -> p[Keys.LAST_BACKUP_TIME] }
+
+    /** 最近一次备份是否成功；null = 旧版本留下的记录（只记成功）或从未备份 */
+    val lastBackupOk: Flow<Boolean?> = context.settingsStore.data.map { p -> p[Keys.LAST_BACKUP_OK] }
 
     suspend fun markBackupDone() = context.settingsStore.edit {
         it[Keys.LAST_BACKUP_TIME] = System.currentTimeMillis()
+        it[Keys.LAST_BACKUP_OK] = true
+    }
+
+    /** 备份失败也记时间，设置页据此显示「上次备份失败（时间）」；没有当前学期时不调用此方法 */
+    suspend fun markBackupFailed() = context.settingsStore.edit {
+        it[Keys.LAST_BACKUP_TIME] = System.currentTimeMillis()
+        it[Keys.LAST_BACKUP_OK] = false
     }
 
     // 节假日 = (官方列表 ∪ 用户手动添加) − 用户手动删除；调休同理，且与放假冲突时放假优先。

@@ -58,11 +58,26 @@ class SettingsViewModel : ViewModel() {
         }
     }
 
-    /** 立即备份（异步执行，结果见 lastBackupTime 变化） */
+    /** 立即备份（异步执行，结果见 backupUi 变化） */
     fun backupNow() = com.balsam.timetable.data.backup.AutoBackup.runNow(Graph.appContext)
 
-    val lastBackupTime: kotlinx.coroutines.flow.StateFlow<Long?> = settingsRepo.lastBackupTime
-        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), null)
+    /** 备份状态（数据区块展示）。旧版本只记成功时间，没有 ok 标记时视为成功，避免老用户误报红字 */
+    sealed interface BackupUiState {
+        data object Never : BackupUiState
+        data class Done(val timeMillis: Long) : BackupUiState
+        data class Failed(val timeMillis: Long) : BackupUiState
+    }
+
+    val backupUi: StateFlow<BackupUiState> = kotlinx.coroutines.flow.combine(
+        settingsRepo.lastBackupTime,
+        settingsRepo.lastBackupOk,
+    ) { time, ok ->
+        when {
+            time == null -> BackupUiState.Never
+            ok == false -> BackupUiState.Failed(time)
+            else -> BackupUiState.Done(time)
+        }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), BackupUiState.Never)
 
     // 日历管理页（节假日/调休的增删、同步）在 ui/holidays，有自己的 ViewModel
     val holidayCalendar: StateFlow<HolidayCalendar> = settingsRepo.holidayCalendar

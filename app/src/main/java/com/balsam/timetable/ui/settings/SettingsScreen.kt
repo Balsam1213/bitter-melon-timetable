@@ -60,7 +60,7 @@ fun SettingsScreen(
 ) {
     val vm: SettingsViewModel = viewModel()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val lastBackup by vm.lastBackupTime.collectAsStateWithLifecycle()
+    val backupUi by vm.backupUi.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var notifGranted by remember { mutableStateOf(vm.hasNotificationPermission()) }
@@ -236,11 +236,22 @@ fun SettingsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { vm.backupNow() }) { Text("立即备份") }
                     Spacer(Modifier.weight(1f))
-                    lastBackup?.let {
-                        Text(
-                            "上次备份：${com.balsam.timetable.data.backup.AutoBackup.describeTime(it)}",
+                    when (val b = backupUi) {
+                        is SettingsViewModel.BackupUiState.Never -> Text(
+                            "尚未备份过",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        is SettingsViewModel.BackupUiState.Done -> Text(
+                            "上次备份：${com.balsam.timetable.data.backup.AutoBackup.describeTime(b.timeMillis)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        is SettingsViewModel.BackupUiState.Failed -> Text(
+                            "上次备份失败（${com.balsam.timetable.data.backup.AutoBackup.describeTime(b.timeMillis)}），" +
+                                "请检查存储空间；也可改用「导出当前学期为 JSON」",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
                 }

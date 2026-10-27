@@ -32,15 +32,20 @@ object AutoBackup {
     private val DIR_NAME = "苦瓜课表"
     private val NAME_DATE = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
 
-    /** 备份当前学期；成功返回 true（无当前学期视为失败，不更新时间戳） */
-    suspend fun backupNow(context: Context): Boolean {
-        val semester = Graph.repository.currentSemesterOnce() ?: return false
-        val doc = Graph.repository.exportDoc(semester.id) ?: return false
-        val json = Json {
-            prettyPrint = true
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-        }.encodeToString(com.balsam.timetable.data.importer.ExportDoc.serializer(), doc)
+    /** 备份结果：NoSemester = 没有当前学期（新装机属正常，不算失败、不写状态，避免设置页误报红字） */
+    enum class BackupOutcome { Success, NoSemester, Failed }
+
+    /** 备份当前学期；成功与失败都会更新设置页的状态时间戳 */
+    suspend fun backupNow(context: Context): BackupOutcome {
+        val semester = Graph.repository.currentSemesterOnce() ?: return BackupOutcome.NoSemester
+        val doc = Graph.repository.exportDoc(semester.id) ?: return BackupOutcome.NoSemester
+        val json = runCatching {
+            Json {
+                prettyPrint = true
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            }.encodeToString(com.balsam.timetable.data.importer.ExportDoc.serializer(), doc)
+        }.getOrElse { return BackupOutcome.Failed }
 
         val name = "课程表备份-${LocalDateTime.now().format(NAME_DATE)}.json"
         val ok = if (Build.VERSION.SDK_INT >= 29) {
@@ -48,11 +53,14 @@ object AutoBackup {
         } else {
             writeAppExternal(context, name, json.toByteArray(Charsets.UTF_8))
         }
-        if (ok) {
+        return if (ok) {
             trimOldBackups(context)
             Graph.settingsRepository.markBackupDone()
+            BackupOutcome.Success
+        } else {
+            Graph.settingsRepository.markBackupFailed()
+            BackupOutcome.Failed
         }
-        return ok
     }
 
     /** Documents/苦瓜课表/ 下的备份文件名列表（新→旧），两个存储通道统一视角 */
@@ -79,17 +87,17 @@ object AutoBackup {
             ?: emptyList()
     }
 
-    private fun writeViaMediaStore(context: Context, name: String, bytes: ByteArray): Boolean {
+    private fun writeViaMediaStore(context: Context, name: String, bytes: ByteArray): Boolean = runCatching {
         val values = ContentValues().apply {
             put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
             put(MediaStore.Files.FileColumns.MIME_TYPE, "application/json")
             put(MediaStore.Files.FileColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOCUMENTS}/$DIR_NAME")
         }
         val uri = context.contentResolver.insert(MediaStore.Files.getContentUri("external"), values)
-            ?: return false
-        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: return false
-        return true
-    }
+            ?: return@runCatching false
+        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } ?: return@runCatching false
+        true
+    }.getOrDefault(false)
 
     private fun writeAppExternal(context: Context, name: String, bytes: ByteArray): Boolean {
         val dir = backupDir(context) ?: return false
@@ -168,9 +176,8 @@ object AutoBackup {
 class AutoBackupWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
-        val ok = AutoBackup.backupNow(applicationContext)
-        // 没有当前学期不算失败（新装机/全删了），下次再试
-        return if (ok) Result.success() else Result.retry()
+    override suspend fun doWork(): Result = when (AutoBackup.backupNow(applicationContext)) {
+        AutoBackup.BackupOutcome.Success, AutoBackup.BackupOutcome.NoSemester -> Result.success()
+        AutoBackup.BackupOutcome.Failed -> Result.retry()
     }
 }
