@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.balsam.timetable.Graph
 import com.balsam.timetable.data.importer.CsvImporter
 import com.balsam.timetable.data.importer.ExportDoc
+import com.balsam.timetable.data.importer.ImportPlanner
 import com.balsam.timetable.data.importer.JsonImporter
 import com.balsam.timetable.data.importer.OcrParser
 import com.balsam.timetable.data.importer.ParsedEntry
