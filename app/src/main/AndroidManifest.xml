@@ -3,12 +3,14 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- 仅「教务网导入」使用：应用内 WebView 访问教务网 -->
+    <!-- 教务网导入 WebView 与节假日数据同步（holiday-cn）使用 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 精确提醒：33+ 自动授予（无弹窗），31-32 默认授予 -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
 
+    <!-- usesCleartextTraffic 明文许可只服务于教务网导入页的 http 校园站兼容；
+         风险在 WebView 层用「明文警告 + 站外确认 + 证书确认」控制，见 WebImportScreen -->
     <application
         android:name=".TimetableApplication"
         android:allowBackup="true"
