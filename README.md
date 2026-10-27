@@ -2,7 +2,7 @@ English | [简体中文](README.zh-CN.md)
 
 # Bitter Melon Timetable (苦瓜课表)
 
-A fully offline Android course-schedule app. Import your timetable, then view and edit courses and class times without any account or network connection, with class reminders beforehand. The optional "academic affairs import" is the only feature that uses the network.
+A fully offline Android course-schedule app. Import your timetable, then view and edit courses and class times without any account or network connection, with class reminders beforehand. Only two optional features use the network: the academic affairs import and the holiday schedule sync (see "Network behavior" below); your timetable data never leaves the device.
 
 ## Features
 
@@ -12,7 +12,7 @@ A fully offline Android course-schedule app. Import your timetable, then view an
   - JSON backup files (this app's own export format)
   - Offline OCR of timetable screenshots (ML Kit Chinese text recognition, model bundled in the APK — no network)
   - Manual entry
-  - Academic affairs import (needs network): opens your school's academic affairs website in an in-app WebView (defaults to Southwest Jiaotong University, changeable to any school), log in manually, open the "My Course Selection Records" or "This Semester's Timetable" page, and import with one tap. Compatible with http sub-sites and self-signed certificates of campus systems (a confirmation dialog appears on certificate errors); supports pinch-to-zoom; white screens caused by broken CSS height chains on some admin portals are auto-repaired
+  - Academic affairs import (needs network): opens your school's academic affairs website in an in-app WebView (defaults to Southwest Jiaotong University, changeable to any school), log in manually, open the "My Course Selection Records" or "This Semester's Timetable" page, and import with one tap. Plaintext http addresses and certificate errors both trigger an explicit risk warning first (credentials could be intercepted) and only proceed after you confirm; navigating to a different site asks too. Compatible with http sub-sites and self-signed certificates of campus systems; supports pinch-to-zoom; white screens caused by broken CSS height chains on some admin portals are auto-repaired
 - **Course management**: one course can have multiple time slots; **arbitrary week sets** (e.g. weeks "1-8, 11-16" — odd/even weeks are just quick presets); custom colors, teacher, room, and notes; time-conflict detection on save
 - **Timetable sharing**: render the current week to an image, save it to the gallery or share it with friends
 - **Display settings**: three text-size levels (stacks with the system font scale), a compact mode that squeezes row height without shrinking text, and four preset app themes (violet / indigo / pine green / rose pink) applied instantly — course colors and share images stay fixed
@@ -45,14 +45,28 @@ A fully offline Android course-schedule app. Import your timetable, then view an
 ## Build
 
 - Requirements: Android Studio (use its bundled JBR as the Gradle JDK), Android SDK
-- `./gradlew :app:assembleDebug` produces the debug build (all ABIs, for development); `./gradlew :app:assembleRelease` produces the size-optimized release build (R8 shrinking + resource shrinking + ABI splits under `abi/arm64-v8a/` etc., signed with the debug key so it installs directly)
+- `./gradlew :app:assembleDebug` produces the debug build (all ABIs, for development); `./gradlew :app:assembleRelease` produces the size-optimized release build (R8 shrinking + resource shrinking + ABI splits under `abi/arm64-v8a/` etc.)
+- Release signing: prefers the formal keystore referenced by `keystore.properties` in the repo root (the file and keystore are not committed — generate your own and back it up); falls back to the debug key when that file is missing (local testing only, not for releases)
+- Note: v1.3 and earlier were debug-signed; from v1.4 on the formal key is used, so covering-install requires uninstalling the old version first
 - `gradle.properties` in this repo enables `android.overridePathCheck=true` (the workspace path contains non-ASCII characters)
+
+## Network behavior
+
+| Feature | Network behavior |
+|---|---|
+| Timetable viewing / editing / search / sharing | Fully local |
+| Screenshot OCR | Chinese recognition model bundled in the APK — no network |
+| Backup & export (JSON / timetable image / daily auto-backup) | Local only |
+| Academic affairs import | User-initiated: in-app WebView opens the school site. Plaintext http URLs trigger a risk warning first (credentials could be intercepted), certificate errors are confirmed per site, and navigating off-site asks for confirmation. The fetched page is parsed locally; timetable data is never uploaded |
+| Holiday sync | Fetches public holiday-cn data over https (3 CDN mirrors); on failure it silently falls back to the built-in State Council presets; your manual edits are never overwritten |
+
+The only requested permission, `INTERNET`, is used exclusively by the last two features; there is no account system and nothing is uploaded.
 
 ## Tech Stack
 
 Kotlin · Jetpack Compose (Material 3) · Room · DataStore · WorkManager (auto-backup) · Glance (widgets) · ML Kit text recognition (offline model bundled) · Jsoup (academic affairs page parsing) · Gradle version catalog + lint gate
 
-No account system; all data lives in the on-device database (`timetable.db`). The only network permission, `INTERNET`, is used exclusively by the "Academic Affairs Import" page (in-app WebView) — timetable data itself never leaves the device.
+No account system; all data lives in the on-device database (`timetable.db`). The `INTERNET` permission is used only by the "Academic Affairs Import" page and the holiday sync (see Network behavior above) — timetable data never leaves the device.
 
 ## Known Limitations
 

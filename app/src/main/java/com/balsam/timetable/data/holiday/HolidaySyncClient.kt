@@ -29,7 +29,7 @@ object HolidaySyncClient {
         val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
             connectTimeout = 6000
             readTimeout = 6000
-            setRequestProperty("User-Agent", "BitterMelonTimetable/1.2")
+            setRequestProperty("User-Agent", "BitterMelonTimetable/1.3")
         }
         conn.connect()
         if (conn.responseCode != 200) return null

@@ -20,6 +20,7 @@
 - 版本在 `app/build.gradle.kts`：`versionName`（如 `1.1`）+ `versionCode`（每次发版 +1）
 - 设置页「关于」读 `BuildConfig.VERSION_NAME` 自动显示，**禁止在 UI 硬编码版本号**
 - 版本节奏：一个小版本聚焦一个主题（v1.1 = 节假日/调休）；改动范围见 `devlog/TODO.md`
+- **正式签名**：release 优先根目录 `keystore.properties`（已 gitignore）指向的 keystore；文件缺失回退 debug 签名并打警告。v1.4 起换正式签名，旧版（debug 签名）覆盖安装前需先卸载
 
 ## 3. 迭代流程（每个功能/每轮改动）
 
@@ -48,7 +49,8 @@
 ## 6. 发布检查清单
 
 - [ ] `versionCode` +1、`versionName` 更新，`devlog/CHANGELOG.md` 补条目
-- [ ] `assembleRelease` 成功，产物可安装启动
+- [ ] `assembleRelease` 成功，产物可安装启动；`apksigner verify --print-certs` 确认是正式签名
+- [ ] keystore 与 `keystore.properties` 密码已异地备份（丢失后无法再发更新）
 - [ ] 两份 README（英文默认 + 中文）同步更新功能描述与已知限制
 - [ ] Room 结构若变更：迁移在旧版本数据上验证过（装旧版 → 升级 → 校验）
 - [ ] 通知/提醒路径真机或模拟器走一遍（含重启重排）
