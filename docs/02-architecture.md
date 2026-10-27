@@ -78,7 +78,7 @@ app/src/main/java/com/balsam/timetable/
 `Graph.repository.onDataChanged = { reschedule(); Widgets.updateAll() }`；课程/学期数据变更、设置变更、节假日变更都走这条链路（今日 + 周视图两个小组件一起刷），防止闹钟/小组件与库内数据脱节。
 
 ### 4.5 导入管线
-所有来源（xlsx/CSV/JSON/OCR/教务网）解析成统一导入模型（`ParsedEntry`，v1.2 起周次为集合）→ `ImportScreen` 预览（逐条勾选可编辑，周次编辑用 `WeeksPicker`）→ **`ImportPlanner` 统一校验（星期/节次/周次）、周次收敛、与已有课程完全重复的条目跳过** → `TimetableRepository` 在 `db.withTransaction` 事务里执行入库，返回 `ImportResult`（新增/跳过重复/无效条目），完成反馈逐项展示。新导入方式只需实现「来源 → 导入模型」的解析器。JSON 备份为 v2 双写格式（weeks 为主 + 旧区间字段推导），旧版本 App 可导入。
+所有来源（xlsx/CSV/JSON/OCR/教务网）解析成统一导入模型（`ParsedEntry`，v1.2 起周次为集合）→ `ImportScreen` 预览（逐条勾选可编辑，周次编辑用 `WeeksPicker`，**无效条目由 `ImportPlanner.validate`（公开纯函数）逐条红字标注并默认不勾选**）→ **`ImportPlanner` 统一校验（星期/节次/周次）、周次收敛、与已有课程完全重复的条目跳过** → `TimetableRepository` 在 `db.withTransaction` 事务里执行入库，返回 `ImportResult`（新增/跳过重复/无效条目），完成反馈逐项展示。**无学期时导入先弹「先建个学期」确认窗（`pendingNewSemester`，预填可改）再入库，不静默拍开学日期**。新导入方式只需实现「来源 → 导入模型」的解析器。解析异常统一经 `friendlyParseError` 翻译成中文。JSON 备份为 v2 双写格式（weeks 为主 + 旧区间字段推导），旧版本 App 可导入。
 
 **教务网导入的网络边界**：平台层保留明文许可（http 校园站兼容是既定需求，networkSecurityConfig 无法白名单用户动态输入的域名），风险控制在 WebView 交互层——scheme 只放行 http/https、明文加载前确认（含服务端重定向兜底）、同注册域外跳转确认、证书异常按 host 会话级记忆确认；`allowFileAccess`/`allowContentAccess` 关闭。节假日同步是唯一的另一处网络调用（`HolidaySyncClient`，固定 3 个 https 域名）。
 
@@ -93,8 +93,9 @@ Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、�
 
 ### 4.8 自动备份（`data/backup/AutoBackup`，v1.3）
 - `AutoBackupWorker`（CoroutineWorker）每日周期任务，`Application` 启动按开关 `enqueueUniquePeriodicWork(KEEP)`；设置页可关（cancel）/「立即备份」（one-time 插队）
-- `backupNow`：当前学期 → `exportDoc` → JSON 写 `Documents/苦瓜课表/课程表备份-yyyyMMdd-HHmmss.json`；API 29+ MediaStore（免权限），26–28 应用外部私有目录兜底
-- 滚动保留最近 7 份（按时间倒序删旧）；成功写 `last_backup_time` 供设置页显示
+- `backupNow` 返回 `BackupOutcome`（Success/NoSemester/Failed）：当前学期 → `exportDoc` → JSON 写 `Documents/苦瓜课表/课程表备份-yyyyMMdd-HHmmss.json`；API 29+ MediaStore（免权限），26–28 应用外部私有目录兜底；序列化与 MediaStore 写入包 runCatching，失败不再让 Worker 静默 FAILED
+- 状态写入 DataStore（`last_backup_time` + `last_backup_ok`）：Success → 时间+ok；NoSemester（新装机属正常）→ 不动状态不误报；Failed → ok=false，设置页三态展示（尚未备份/成功/失败红字+引导手动导出）
+- 滚动保留最近 7 份（按时间倒序删旧）
 
 ## 5. 测试与静态检查
 
