@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+}
+
+// 正式签名从根目录 keystore.properties 读取（gitignore，见 docs/04）；
+// 文件缺失时回退 debug 签名，保证 clone 下来就能构建
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 ksp {
@@ -24,6 +33,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // 调试包保持全架构、不混淆，方便开发
@@ -32,8 +52,13 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // 用 debug 签名，release 包也可直接安装覆盖
-            signingConfig = signingConfigs.getByName("debug")
+            // 优先正式签名；keystore.properties 缺失时回退 debug 签名（仅限本地调试）
+            signingConfig = if (signingConfigs.any { it.name == "release" }) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("keystore.properties 缺失，release 包使用 debug 签名，不可用于发版")
+                signingConfigs.getByName("debug")
+            }
         }
     }
     // 按 CPU 架构拆分：手机装 arm64 包可省去其余三份 OCR 原生库（约省 30MB）；

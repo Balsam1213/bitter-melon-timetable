@@ -13,6 +13,11 @@ captures/
 # 本机 SDK 路径（每人不同）
 local.properties
 
+# 正式签名：keystore 与密码不进仓库（docs/04 发布清单有备份要求）
+keystore.properties
+*.jks
+*.keystore
+
 # Kotlin/Native 与编译缓存
 .kotlin/
 
