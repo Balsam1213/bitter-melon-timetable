@@ -338,7 +338,15 @@ object OcrParser {
         }
 
         // 6. 连堂合并：教务表格每节重复课程全文，同名（含近似名）相邻合并为一个时间段
-        return absorbOrphanLocations(mergeAdjacent(entries))
+        return ensureGridResult(absorbOrphanLocations(mergeAdjacent(entries)))
+    }
+
+    /** 网格版式空结果的统一报错（表头定位成功但格子内容一个都没解析出来），不让空列表静默通过 */
+    internal fun ensureGridResult(entries: List<ParsedEntry>): List<ParsedEntry> {
+        if (entries.isEmpty()) {
+            throw OcrParseException("识别到了表头但没有解析出课程，请确认截图里课程格子文字清晰可读")
+        }
+        return entries
     }
 
     private fun medianOfDiffs(sorted: List<Int>): Int {

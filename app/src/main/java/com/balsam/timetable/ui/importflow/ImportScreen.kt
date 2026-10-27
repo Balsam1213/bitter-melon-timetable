@@ -225,6 +225,15 @@ fun ImportScreen(
                     },
                     fontWeight = FontWeight.SemiBold,
                 )
+                // JSON 备份带学期元数据：让用户在预览阶段就知道会合并到哪个学期（同名同起始日合并，否则新建）
+                state.jsonDoc?.let { doc ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "内嵌学期：${doc.semester.name} · 开学 ${doc.semester.startDate} · ${doc.semester.totalWeeks} 周",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(6.dp))
                 var editingIndex by remember { mutableStateOf<Int?>(null) }
                 state.entries.forEachIndexed { i, e ->

@@ -14,6 +14,7 @@ import com.balsam.timetable.data.importer.ParsedEntry
 import com.balsam.timetable.data.importer.RowMapper
 import com.balsam.timetable.data.importer.TextParsers
 import com.balsam.timetable.data.importer.XlsxParser
+import com.balsam.timetable.data.importer.friendlyParseError
 import com.balsam.timetable.data.model.WeekLogic
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
@@ -90,6 +91,7 @@ class ImportViewModel : ViewModel() {
                 when {
                     lower.endsWith(".json") -> {
                         val doc = JsonImporter.parse(TextParsers.decodeBytes(bytes))
+                        check(doc.entries.isNotEmpty()) { "备份文件里没有课程条目" }
                         _ui.value = UiState(
                             sourceLabel = "JSON 文件",
                             jsonDoc = doc,
@@ -113,7 +115,7 @@ class ImportViewModel : ViewModel() {
                     }
                 }
             } catch (e: Exception) {
-                _ui.value = UiState(error = "解析失败：${e.message ?: e.javaClass.simpleName}")
+                _ui.value = UiState(error = "解析失败：${friendlyParseError(e)}")
             }
         }
     }
@@ -149,7 +151,7 @@ class ImportViewModel : ViewModel() {
             } catch (e: OcrParser.OcrParseException) {
                 _ui.value = UiState(error = e.message)
             } catch (e: Exception) {
-                _ui.value = UiState(error = "识别失败：${e.message ?: e.javaClass.simpleName}")
+                _ui.value = UiState(error = "识别失败：${friendlyParseError(e)}")
             }
         }
     }

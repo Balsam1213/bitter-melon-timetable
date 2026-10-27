@@ -130,7 +130,7 @@ fun WebImportScreen(
                     onParsed()
                 } catch (e: Exception) {
                     busy = false
-                    error = e.message ?: e.javaClass.simpleName
+                    error = com.balsam.timetable.data.importer.friendlyParseError(e)
                 }
             }
         }

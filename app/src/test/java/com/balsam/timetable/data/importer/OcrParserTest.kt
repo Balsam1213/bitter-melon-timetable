@@ -137,6 +137,19 @@ class OcrParserTest {
     }
 
     @Test
+    fun `网格版式空结果报错而非静默通过`() {
+        try {
+            OcrParser.ensureGridResult(emptyList())
+            org.junit.Assert.fail("应抛出 OcrParseException")
+        } catch (e: OcrParser.OcrParseException) {
+            org.junit.Assert.assertTrue(e.message!!.contains("没有解析出课程"))
+        }
+        // 非空结果原样返回
+        val kept = listOf(entry("高等数学", 1, 1, 2))
+        org.junit.Assert.assertEquals(kept, OcrParser.ensureGridResult(kept))
+    }
+
+    @Test
     fun `不同课不误合并`() {
         // 字符交集 0.5 < 0.65，且互非前缀
         val merged = OcrParser.mergeAdjacent(
