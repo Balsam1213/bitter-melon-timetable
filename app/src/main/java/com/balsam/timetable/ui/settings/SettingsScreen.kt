@@ -64,12 +64,16 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     var notifGranted by remember { mutableStateOf(vm.hasNotificationPermission()) }
+    var exactAlarmsGranted by remember { mutableStateOf(vm.canScheduleExactAlarms()) }
     var exportError by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { notifGranted = vm.hasNotificationPermission() }
+    val exactLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { exactAlarmsGranted = vm.canScheduleExactAlarms() }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
@@ -128,8 +132,19 @@ fun SettingsScreen(
                         Text("去开启通知权限")
                     }
                 }
+                if (!exactAlarmsGranted) {
+                    Text(
+                        "未授予精确闹钟权限，提醒可能延迟几分钟。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    TextButton(onClick = { exactLauncher.launch(vm.requestExactAlarmIntent()) }) {
+                        Text("去开启精确闹钟")
+                    }
+                }
                 LaunchedEffect(Unit) {
                     notifGranted = vm.hasNotificationPermission()
+                    exactAlarmsGranted = vm.canScheduleExactAlarms()
                 }
             }
 

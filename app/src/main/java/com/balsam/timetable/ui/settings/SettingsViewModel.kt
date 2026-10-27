@@ -92,10 +92,22 @@ class SettingsViewModel : ViewModel() {
         Graph.reminderScheduler.reschedule()
     }
 
+    /** 通知可达性：33+ 查运行时权限，再以系统通知总开关兜底（渠道被关等场景） */
     fun hasNotificationPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < 33) return true
-        return Graph.appContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+        if (Build.VERSION.SDK_INT >= 33 &&
+            Graph.appContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+        return androidx.core.app.NotificationManagerCompat.from(Graph.appContext).areNotificationsEnabled()
+    }
+
+    /** 精确闹钟是否可用（31+ 用户可撤销；低版本恒可用）。false 时提醒降级、可能延迟 */
+    fun canScheduleExactAlarms(): Boolean {
+        if (Build.VERSION.SDK_INT < 31) return true
+        val am = Graph.appContext.getSystemService(android.content.Context.ALARM_SERVICE) as? AlarmManager
+        return am?.canScheduleExactAlarms() ?: true
     }
 
     // ACTION 常量编译期内联，低版本引用安全；该 Intent 只会在 31+ 的精确闹钟引导里使用
