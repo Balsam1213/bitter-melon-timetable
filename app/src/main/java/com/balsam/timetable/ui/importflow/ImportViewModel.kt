@@ -42,7 +42,7 @@ class ImportViewModel : ViewModel() {
         val entries: List<ParsedEntry> = emptyList(),
         val jsonDoc: ExportDoc? = null,
         val error: String? = null,
-        val importedCount: Int? = null,
+        val importResult: com.balsam.timetable.data.importer.ImportResult? = null,
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -76,7 +76,7 @@ class ImportViewModel : ViewModel() {
 
     fun parseFile(bytes: ByteArray, fileName: String) {
         viewModelScope.launch {
-            _ui.value = _ui.value.copy(busy = true, error = null, importedCount = null)
+            _ui.value = _ui.value.copy(busy = true, error = null, importResult = null)
             try {
                 val lower = fileName.lowercase()
                 when {
@@ -112,7 +112,7 @@ class ImportViewModel : ViewModel() {
 
     fun parseImage(uri: Uri) {
         viewModelScope.launch {
-            _ui.value = _ui.value.copy(busy = true, error = null, importedCount = null)
+            _ui.value = _ui.value.copy(busy = true, error = null, importResult = null)
             try {
                 val entries = withContext(Dispatchers.IO) {
                     val bmp = decodeSampled(uri)
@@ -167,7 +167,7 @@ class ImportViewModel : ViewModel() {
             _ui.value = _ui.value.copy(busy = true, error = null)
             try {
                 val doc = _ui.value.jsonDoc
-                val count = if (doc != null && !freshSemester) {
+                val result = if (doc != null && !freshSemester) {
                     // 常规导入：按文件内嵌的学期信息合并/新建学期
                     repo.importFromDoc(doc)
                 } else if (doc != null && freshSemester) {
@@ -202,7 +202,7 @@ class ImportViewModel : ViewModel() {
                         clearExisting = false,
                     )
                 }
-                _ui.value = _ui.value.copy(busy = false, importedCount = count)
+                _ui.value = _ui.value.copy(busy = false, importResult = result)
             } catch (e: Exception) {
                 _ui.value = _ui.value.copy(busy = false, error = "导入失败：${e.message ?: e.javaClass.simpleName}")
             }

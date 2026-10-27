@@ -102,10 +102,32 @@ fun ImportScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            if (state.importedCount != null) {
+            if (state.importResult != null) {
+                val r = state.importResult
                 Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("✅ 已导入 ${state.importedCount} 门课程", fontWeight = FontWeight.SemiBold)
+                        Text("✅ 已导入 ${r?.importedCourses ?: 0} 门课程", fontWeight = FontWeight.SemiBold)
+                        if ((r?.skippedDuplicates ?: 0) > 0) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "↺ 跳过 ${r?.skippedDuplicates} 条与现有课程完全重复的条目",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        r?.invalid?.let { invalid ->
+                            if (invalid.isNotEmpty()) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "⚠ ${invalid.size} 条无效已忽略（" +
+                                        invalid.groupingBy { it.reason }.eachCount()
+                                            .entries.joinToString("、") { (reason, n) -> "$reason $n 条" } +
+                                        "），请检查原始文件后手动补充",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         Spacer(Modifier.height(6.dp))
                         Text(
                             "如果学期开学日期不正确，请到「学期管理」中修改，否则周次和提醒会错位。",

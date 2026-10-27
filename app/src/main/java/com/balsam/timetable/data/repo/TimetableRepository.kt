@@ -1,5 +1,6 @@
 package com.balsam.timetable.data.repo
 
+import androidx.room.withTransaction
 import com.balsam.timetable.data.db.AppDatabase
 import com.balsam.timetable.data.db.Course
 import com.balsam.timetable.data.db.CourseWithLessons
@@ -7,6 +8,8 @@ import com.balsam.timetable.data.db.Lesson
 import com.balsam.timetable.data.db.Semester
 import com.balsam.timetable.data.db.TimeSlot
 import com.balsam.timetable.data.importer.ExportDoc
+import com.balsam.timetable.data.importer.ImportPlanner
+import com.balsam.timetable.data.importer.ImportResult
 import com.balsam.timetable.data.importer.ParsedEntry
 import com.balsam.timetable.data.model.CourseColors
 import com.balsam.timetable.data.model.LessonLike
@@ -160,67 +163,89 @@ class TimetableRepository(private val db: AppDatabase) {
 
     // ---------------- 导入 / 导出 ----------------
 
-    /** 把解析好的条目导入学期；同名同教师合并为一门课。返回新增课程数 */
-    suspend fun importEntries(semesterId: Long, entries: List<ParsedEntry>, clearExisting: Boolean): Int {
-        if (clearExisting) {
-            db.courseDao().bySemesterOnce(semesterId).forEach { db.courseDao().deleteCourseWithLessons(it.id) }
-        }
-        val valid = entries.filter { it.include && it.name.isNotBlank() }
-        // 识别出的节次超出当前节次表时自动追加行（45 分钟一节、10 分钟间隔顺延），
-        // 避免高节次课程（如第 11-12 节）被钳制丢失
-        val currentSlots = db.timeSlotDao().bySemesterOnce(semesterId).sortedBy { it.orderIndex }
-        val maxNeeded = valid.maxOfOrNull { maxOf(it.startSlot, it.endSlot) } ?: 0
-        if (currentSlots.isNotEmpty() && maxNeeded > currentSlots.size) {
-            var cur = runCatching { java.time.LocalTime.parse(currentSlots.last().endTime) }
-                .getOrDefault(java.time.LocalTime.of(21, 0))
-            val toAdd = mutableListOf<TimeSlot>()
-            for (n in (currentSlots.size + 1)..maxNeeded) {
-                val end = cur.plusMinutes(45)
-                toAdd.add(
-                    TimeSlot(
+    /**
+     * 把解析好的条目导入学期：先经 ImportPlanner 校验/去重/周次收敛，再在事务里执行。
+     * 必须整体是一个事务——中途失败不能留下删了旧课却没进新课的半截数据。
+     */
+    suspend fun importEntries(semesterId: Long, entries: List<ParsedEntry>, clearExisting: Boolean): ImportResult {
+        val result = db.withTransaction {
+            if (clearExisting) {
+                db.courseDao().bySemesterOnce(semesterId).forEach { db.courseDao().deleteCourseWithLessons(it.id) }
+            }
+            val existing = db.courseDao().withLessonsOnce(semesterId).map { cwl ->
+                ImportPlanner.ExistingCourse(
+                    name = cwl.course.name.trim(),
+                    teacher = cwl.course.teacher.trim(),
+                    lessons = cwl.lessons.map { l ->
+                        ImportPlanner.LessonFingerprint(
+                            dayOfWeek = l.dayOfWeek,
+                            startSlot = l.startSlot,
+                            endSlot = l.endSlot,
+                            weeks = l.weekSet,
+                            location = l.location.trim(),
+                        )
+                    },
+                )
+            }
+            val slots = db.timeSlotDao().bySemesterOnce(semesterId).sortedBy { it.orderIndex }
+            val plan = ImportPlanner.plan(
+                entries = entries,
+                existing = existing,
+                totalWeeks = db.semesterDao().byId(semesterId)?.totalWeeks ?: 0,
+            )
+            // 识别出的节次超出当前节次表时自动追加行（45 分钟一节、10 分钟间隔顺延），
+            // 避免高节次课程（如第 11-12 节）被钳制丢失
+            if (slots.isNotEmpty() && plan.maxSlotNeeded > slots.size) {
+                var cur = runCatching { java.time.LocalTime.parse(slots.last().endTime) }
+                    .getOrDefault(java.time.LocalTime.of(21, 0))
+                val toAdd = mutableListOf<TimeSlot>()
+                for (n in (slots.size + 1)..plan.maxSlotNeeded) {
+                    val end = cur.plusMinutes(45)
+                    toAdd.add(
+                        TimeSlot(
+                            semesterId = semesterId,
+                            orderIndex = n,
+                            startTime = cur.toString().take(5),
+                            endTime = end.toString().take(5),
+                        )
+                    )
+                    cur = end.plusMinutes(10)
+                }
+                db.timeSlotDao().insertAll(toAdd)
+            }
+            var colorIdx = db.courseDao().bySemesterOnce(semesterId).size
+            plan.courses.forEach { pc ->
+                val courseId = db.courseDao().insert(
+                    Course(
                         semesterId = semesterId,
-                        orderIndex = n,
-                        startTime = cur.toString().take(5),
-                        endTime = end.toString().take(5),
+                        name = pc.name,
+                        teacher = pc.teacher,
+                        colorArgb = CourseColors.pick(colorIdx++),
                     )
                 )
-                cur = end.plusMinutes(10)
+                db.lessonDao().insertAll(pc.lessons.map { pl ->
+                    Lesson(
+                        courseId = courseId,
+                        dayOfWeek = pl.dayOfWeek,
+                        startSlot = pl.startSlot,
+                        endSlot = pl.endSlot,
+                        weeks = WeeksCodec.format(pl.weeks),
+                        location = pl.location,
+                    )
+                })
             }
-            db.timeSlotDao().insertAll(toAdd)
-        }
-        var colorIdx = db.courseDao().bySemesterOnce(semesterId).size
-        val semester = db.semesterDao().byId(semesterId)
-        val totalWeeks = semester?.totalWeeks ?: 0
-        val grouped = valid.groupBy { it.name.trim() to it.teacher.trim() }
-        grouped.forEach { (_, group) ->
-            val first = group.first()
-            val courseId = db.courseDao().insert(
-                Course(
-                    semesterId = semesterId,
-                    name = first.name.trim(),
-                    teacher = first.teacher.trim(),
-                    colorArgb = CourseColors.pick(colorIdx++),
-                )
+            ImportResult(
+                importedCourses = plan.courses.size,
+                skippedDuplicates = plan.skippedDuplicates,
+                invalid = plan.invalid,
             )
-            db.lessonDao().insertAll(group.map { e ->
-                // 超出学期总周数的部分收敛掉（导入预览编辑时给的是 20 周上限）
-                val clamped = if (totalWeeks > 0) e.weeks.filter { it <= totalWeeks }.toSet() else e.weeks
-                Lesson(
-                    courseId = courseId,
-                    dayOfWeek = e.dayOfWeek,
-                    startSlot = e.startSlot,
-                    endSlot = maxOf(e.startSlot, e.endSlot),
-                    weeks = WeeksCodec.format(clamped.ifEmpty { e.weeks }),
-                    location = e.location.trim(),
-                )
-            })
         }
         changed()
-        return grouped.size
+        return result
     }
 
     /** 导入本应用导出的 JSON 文档；学期同名同起始日则合并，否则新建并设为当前 */
-    suspend fun importFromDoc(doc: ExportDoc): Int {
+    suspend fun importFromDoc(doc: ExportDoc): ImportResult {
         val existing = db.semesterDao().byNameAndStart(doc.semester.name, doc.semester.startDate)
         val semesterId: Long
         if (existing != null) {
