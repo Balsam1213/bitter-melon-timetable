@@ -38,7 +38,7 @@
 |---|---|
 | [`app-arm64-v8a-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-arm64-v8a-release.apk) | 绝大多数近年的手机（**推荐**） |
 | [`app-armeabi-v7a-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-armeabi-v7a-release.apk) | 较老的 32 位手机 |
-| [`app-x86_64-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-x86_64-release.apk) / [`app-x86-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-x86-release.apk) | 模拟器 / x86 设备 |
+| [`app-x86_64-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-x86_64-release.apk) | 模拟器 / x86 设备 |
 | [`app-universal-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-universal-release.apk) | 不确定架构时的通用包（体积更大） |
 
 > [!IMPORTANT]

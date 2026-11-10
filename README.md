@@ -38,7 +38,7 @@ Grab the APK for your device architecture from the [**latest release**](https://
 |---|---|
 | [`app-arm64-v8a-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-arm64-v8a-release.apk) | Virtually all modern phones (**recommended**) |
 | [`app-armeabi-v7a-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-armeabi-v7a-release.apk) | Older 32-bit phones |
-| [`app-x86_64-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-x86_64-release.apk) / [`app-x86-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-x86-release.apk) | Emulators / x86 devices |
+| [`app-x86_64-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-x86_64-release.apk) | Emulators / x86 devices |
 | [`app-universal-release.apk`](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest/download/app-universal-release.apk) | Universal fallback if unsure (larger) |
 
 > [!IMPORTANT]
