@@ -11,8 +11,10 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /**
- * 提醒排课决策（纯函数）：给定学期/节次/课程/节假日，算出未来 7 天内
+ * 提醒排课决策（纯函数）：给定学期/节次/课程/节假日，算出未来 7×24 小时内
  * 应该响的课前提醒事件，按触发时刻排序、最多 MAX_ALARMS 个。
+ * 窗口按完整时间戳限制（now..now+HORIZON_DAYS，边界含）而非自然日，
+ * 避免把第 8 天（如下周一晚上）的课也纳入计划。
  * 与 AlarmManager 完全解耦（单测覆盖）；ReminderScheduler 负责取数与真正排闹钟。
  */
 object ReminderPlanner {
@@ -42,6 +44,8 @@ object ReminderPlanner {
         val occurrences = mutableListOf<Occurrence>()
         var date: LocalDate = now.toLocalDate()
         val end = now.toLocalDate().plusDays(HORIZON_DAYS)
+        // 严格 7×24h 时间戳窗口：跨午夜提前量归到前一天后，仍要落在 now..horizon 内
+        val horizon = now.plusDays(HORIZON_DAYS)
         while (!date.isAfter(end)) {
             if (date.toString() in holidays) {
                 date = date.plusDays(1)
@@ -62,7 +66,7 @@ object ReminderPlanner {
                             runCatching { LocalTime.parse(startSlot.startTime) }.getOrDefault(LocalTime.of(8, 0))
                         )
                         val remindAt = startAt.minusMinutes(leadMinutes.toLong())
-                        if (remindAt.isBefore(now)) continue
+                        if (remindAt.isBefore(now) || remindAt.isAfter(horizon)) continue
                         val endSlot = slots.getOrNull(lesson.endSlot - 1)
                         val range = if (lesson.endSlot > lesson.startSlot) "${lesson.startSlot}-${lesson.endSlot}" else "${lesson.startSlot}"
                         val timeRange = endSlot?.let { "${startSlot.startTime}-${it.endTime}" } ?: startSlot.startTime

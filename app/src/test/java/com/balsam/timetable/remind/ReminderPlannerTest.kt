@@ -13,8 +13,8 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /**
- * 提醒排课决策纯逻辑。固定 now = 2026-10-28（周三）12:00，horizon 覆盖
- * 10/28（周三）..11/4（周三）共 8 天，对应学期第 8-9 周。
+ * 提醒排课决策纯逻辑。固定 now = 2026-10-28（周三）12:00，窗口为严格 7×24 小时
+ * 时间戳（now..11/4 12:00，边界含），对应学期第 8-9 周。
  * 决策只用 LocalDateTime 计算，与系统时区无关；中国无夏令时，不引入时区用例。
  */
 class ReminderPlannerTest {
@@ -179,5 +179,58 @@ class ReminderPlannerTest {
         assertEquals("早课", list[0].courseName) // 07:30
         assertEquals("下午课", list[1].courseName) // 13:30
         assertTrue(list[0].remindAt.isBefore(list[1].remindAt))
+    }
+
+    // —— 窗口边界（严格 7×24h 时间戳，horizon = 11/4 12:00）——
+
+    @Test
+    fun `距当前时间恰好7天的课仍排`() {
+        // 11/4（第 9 周）12:30 上课，提前 30 分钟 → remindAt 恰等于 horizon，边界含
+        val slot = listOf(TimeSlot(semesterId = 1, orderIndex = 1, startTime = "12:30", endTime = "13:10"))
+        val list = plan(listOf(course(dow = 3, weeks = "9")), lead = 30, slotList = slot)
+        assertEquals(1, list.size)
+        assertEquals(LocalDateTime.of(2026, 11, 4, 12, 0), list[0].remindAt)
+    }
+
+    @Test
+    fun `超过7天1分钟的课不排`() {
+        // 11/4 12:31 上课 → remindAt 12:01 超出 horizon 1 分钟
+        val slot = listOf(TimeSlot(semesterId = 1, orderIndex = 1, startTime = "12:31", endTime = "13:10"))
+        assertEquals(0, plan(listOf(course(dow = 3, weeks = "9")), lead = 30, slotList = slot).size)
+    }
+
+    @Test
+    fun `跨周末的课照排`() {
+        // 10/31 周六（第 8 周），从周三 10/28 跨过周末
+        val list = plan(listOf(course(dow = 6)))
+        assertEquals(1, list.size)
+        assertEquals(LocalDateTime.of(2026, 10, 31, 7, 30), list[0].remindAt)
+    }
+
+    @Test
+    fun `跨月的课照排`() {
+        // 11/1 周日（第 8 周），跨过 10/31 → 11/1 月边界
+        val list = plan(listOf(course(dow = 7)))
+        assertEquals(1, list.size)
+        assertEquals(LocalDateTime.of(2026, 11, 1, 7, 30), list[0].remindAt)
+    }
+
+    @Test
+    fun `跨年的课在窗口内照排且超出不排`() {
+        // now = 2026-12-28 12:00（第 4 周），horizon = 2027-01-04 12:00 跨年
+        val newYearNow = LocalDateTime.of(2026, 12, 28, 12, 0)
+        val spring = semester.copy(startDate = "2026-12-07")
+        // 1/4（第 5 周）周一早课在窗口内；12/28 当天的早课已过 now 被过滤
+        val list = ReminderPlanner.plan(
+            newYearNow, spring, slots, listOf(course(dow = 1)), HolidayCalendar(), true, 30,
+        )
+        assertEquals(1, list.size)
+        assertEquals(LocalDateTime.of(2027, 1, 4, 7, 30), list[0].remindAt)
+        // 1/4 12:31 上课 → remindAt 12:01 超出 horizon 1 分钟，不排（weeks 限定第 5 周排除 12/28 干扰）
+        val slot = listOf(TimeSlot(semesterId = 1, orderIndex = 1, startTime = "12:31", endTime = "13:10"))
+        val late = ReminderPlanner.plan(
+            newYearNow, spring, slot, listOf(course(dow = 1, weeks = "5")), HolidayCalendar(), true, 30,
+        )
+        assertEquals(0, late.size)
     }
 }
