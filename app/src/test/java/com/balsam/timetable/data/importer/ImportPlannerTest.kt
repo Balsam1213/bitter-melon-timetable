@@ -188,4 +188,75 @@ class ImportPlannerTest {
         )
         assertEquals(12, plan.maxSlotNeeded)
     }
+
+    // —— conflictsAmong（预览阶段条目间时间冲突）——
+
+    @Test
+    fun `同天同节次的条目互报冲突`() {
+        val map = ImportPlanner.conflictsAmong(
+            listOf(entry(name = "高等数学", day = 1, start = 1, end = 2), entry(name = "大学英语", day = 1, start = 2, end = 3)),
+            totalWeeks = 16,
+        )
+        assertEquals(setOf(0, 1), map.keys)
+        assertEquals(listOf("大学英语（1-16周）"), map[0])
+        assertEquals(listOf("高等数学（1-16周）"), map[1])
+    }
+
+    @Test
+    fun `不同天或节次不相交或周次不相交都不算冲突`() {
+        val map = ImportPlanner.conflictsAmong(
+            listOf(
+                entry(name = "高等数学", day = 1, start = 1, end = 2),
+                entry(name = "不同天", day = 2, start = 1, end = 2),
+                entry(name = "节次错开", day = 1, start = 3, end = 4),
+                entry(name = "周次错开", day = 1, start = 1, end = 2, weeks = (17..20).toSet()),
+            ),
+            totalWeeks = 16,
+        )
+        // 周次错开的条目本身被判无效（全部超界），也不参与冲突
+        assertTrue(map.isEmpty())
+    }
+
+    @Test
+    fun `周次部分相交也算冲突`() {
+        val map = ImportPlanner.conflictsAmong(
+            listOf(
+                entry(name = "高等数学", day = 3, start = 1, end = 2, weeks = (1..8).toSet()),
+                entry(name = "大学英语", day = 3, start = 1, end = 2, weeks = (8..16).toSet()),
+            ),
+            totalWeeks = 16,
+        )
+        assertEquals(setOf(0, 1), map.keys)
+        assertEquals(listOf("大学英语（8周）"), map[0])
+    }
+
+    @Test
+    fun `无效与未勾选的条目不参与冲突`() {
+        val map = ImportPlanner.conflictsAmong(
+            listOf(
+                entry(name = "高等数学", day = 1, start = 1, end = 2),
+                entry(name = "  ", day = 1, start = 1, end = 2), // 无效：空名称
+                entry(name = "未勾选", day = 1, start = 1, end = 2, include = false),
+            ),
+            totalWeeks = 16,
+        )
+        assertTrue(map.isEmpty())
+    }
+
+    @Test
+    fun `多条冲突逐个列出`() {
+        val map = ImportPlanner.conflictsAmong(
+            listOf(
+                entry(name = "高等数学", day = 5, start = 1, end = 4),
+                entry(name = "大学英语", day = 5, start = 1, end = 2),
+                entry(name = "大学物理", day = 5, start = 3, end = 4),
+            ),
+            totalWeeks = 16,
+        )
+        assertEquals(3, map.size)
+        assertEquals(
+            setOf("大学英语（1-16周）", "大学物理（1-16周）"),
+            map[0]!!.toSet(),
+        )
+    }
 }

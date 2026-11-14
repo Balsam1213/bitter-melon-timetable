@@ -16,7 +16,7 @@ import com.balsam.timetable.data.importer.RowMapper
 import com.balsam.timetable.data.importer.TextParsers
 import com.balsam.timetable.data.importer.XlsxParser
 import com.balsam.timetable.data.importer.friendlyParseError
-import com.balsam.timetable.data.model.WeekLogic
+import com.balsam.timetable.data.model.SemesterDefaults
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -234,9 +233,9 @@ class ImportViewModel : ViewModel() {
                         _ui.value = _ui.value.copy(
                             busy = false,
                             pendingNewSemester = SemesterDraft(
-                                name = semesterNameSuggestion(LocalDate.now()),
-                                startDate = WeekLogic.mondayOf(LocalDate.now()).toString(),
-                                totalWeeks = 20,
+                                name = SemesterDefaults.nameSuggestion(),
+                                startDate = SemesterDefaults.startSuggestion(),
+                                totalWeeks = SemesterDefaults.TOTAL_WEEKS,
                             ),
                         )
                         return@launch
@@ -319,12 +318,4 @@ class ImportViewModel : ViewModel() {
             .addOnSuccessListener { t -> if (cont.isActive) cont.resume(t) }
             .addOnFailureListener { e -> if (cont.isActive) cont.resumeWithException(e) }
     }
-
-private fun semesterNameSuggestion(today: LocalDate): String {
-    val year = today.year
-    val month = today.monthValue
-    val academicYear = if (month >= 8) "$year-${year + 1}" else "${year - 1}-$year"
-    val term = if (month in 2..7) "第二学期" else "第一学期"
-    return "${academicYear}学年 $term"
-}
 }

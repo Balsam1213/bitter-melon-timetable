@@ -1,5 +1,7 @@
 package com.balsam.timetable.data.importer
 
+import com.balsam.timetable.data.model.WeeksCodec
+
 /**
  * 导入计划：把预览确认后的条目整理成可入库的形态。
  * 校验、周次收敛、与已有课程去重都是纯函数逻辑（单测覆盖），
@@ -115,6 +117,31 @@ object ImportPlanner {
         if (e.weeks.isEmpty()) return REASON_WEEKS_EMPTY
         if (totalWeeks > 0 && e.weeks.none { it <= totalWeeks }) return REASON_WEEKS_OUT_OF_RANGE
         return null
+    }
+
+    /**
+     * 预览阶段的条目间时间冲突检测（只比本次要导入的条目之间，不与库中已有课程比对）：
+     * 同天 + 节次区间相交 + 周次集合相交即冲突。返回「条目下标 → 与之冲突的课程描述列表」，
+     * 仅供预览页标注（不取消勾选、不拦导入），入库后编辑页仍有完整的冲突检测。
+     */
+    fun conflictsAmong(entries: List<ParsedEntry>, totalWeeks: Int): Map<Int, List<String>> {
+        val result = mutableMapOf<Int, MutableList<String>>()
+        val valid = entries.withIndex().filter { (_, e) -> validate(e, totalWeeks) == null && e.include }
+        for (a in valid) {
+            for (b in valid) {
+                if (b.index <= a.index) continue
+                if (a.value.dayOfWeek != b.value.dayOfWeek) continue
+                if (a.value.startSlot > b.value.endSlot || b.value.startSlot > a.value.endSlot) continue
+                val overlap = a.value.weeks intersect b.value.weeks
+                if (overlap.isEmpty()) continue
+                val weeksLabel = WeeksCodec.label(overlap, 0) ?: "全学期"
+                result.getOrPut(a.index) { mutableListOf() }
+                    .add("${b.value.name.ifBlank { "未命名课程" }}（$weeksLabel）")
+                result.getOrPut(b.index) { mutableListOf() }
+                    .add("${a.value.name.ifBlank { "未命名课程" }}（$weeksLabel）")
+            }
+        }
+        return result
     }
 }
 

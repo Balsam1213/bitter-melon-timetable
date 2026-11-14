@@ -82,11 +82,10 @@ fun ImportScreen(
 
     LaunchedEffect(Unit) { vm.reset() }
 
-    // 接收教务网导入的解析结果，进入统一的预览确认流程
+    // 接收教务网导入的解析结果（一次性消费），进入统一的预览确认流程
     LaunchedEffect(Unit) {
-        com.balsam.timetable.data.html.WebImportBus.pendingEntries?.let { entries ->
+        com.balsam.timetable.data.html.WebImportBus.consume()?.let { entries ->
             vm.loadExternal(entries)
-            com.balsam.timetable.data.html.WebImportBus.pendingEntries = null
         }
     }
 
@@ -240,10 +239,23 @@ fun ImportScreen(
                 val reasons = remember(state.entries, state.totalWeeks) {
                     state.entries.map { ImportPlanner.validate(it, state.totalWeeks) }
                 }
+                // 条目间时间冲突：仅提示不拦导入（勾选变化会实时重算）
+                val conflicts = remember(state.entries, state.totalWeeks) {
+                    ImportPlanner.conflictsAmong(state.entries, state.totalWeeks)
+                }
+                if (conflicts.isNotEmpty()) {
+                    Text(
+                        "⚠ 有 ${conflicts.size} 条记录与其他所选课程时间冲突（同一天且节次、周次重叠），请确认是否真的要同时保留：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
                 state.entries.forEachIndexed { i, e ->
                     EntryRow(
                         entry = e,
                         reason = reasons[i],
+                        conflicts = conflicts[i],
                         onToggle = { vm.toggleInclude(i) },
                         onEdit = { editingIndex = i },
                     )
@@ -391,7 +403,13 @@ private fun SourceCard(
 }
 
 @Composable
-private fun EntryRow(entry: ParsedEntry, reason: String?, onToggle: () -> Unit, onEdit: () -> Unit) {
+private fun EntryRow(
+    entry: ParsedEntry,
+    reason: String?,
+    conflicts: List<String>?,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onEdit).padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -415,6 +433,13 @@ private fun EntryRow(entry: ParsedEntry, reason: String?, onToggle: () -> Unit, 
                     "⚠ $it，已默认不勾选；可点击修改或手动勾选",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error,
+                )
+            }
+            if (conflicts != null && reason == null) {
+                Text(
+                    "⊗ 与 ${conflicts.joinToString("、")} 时间冲突",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
                 )
             }
         }

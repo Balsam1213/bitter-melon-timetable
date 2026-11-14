@@ -57,7 +57,12 @@ data class ExportDoc(
     val semester: ExportSemester,
     val slots: List<ExportSlot> = emptyList(),
     val entries: List<ExportEntry> = emptyList(),
-)
+) {
+    companion object {
+        /** 当前备份格式版本；v1 = 旧「区间+单双周」字段，v2 = weeks 集合本体（旧字段双写兼容） */
+        const val CURRENT_VERSION = 2
+    }
+}
 
 /** 解析中间态：导入预览页里逐条展示、可编辑、可勾选 */
 data class ParsedEntry(

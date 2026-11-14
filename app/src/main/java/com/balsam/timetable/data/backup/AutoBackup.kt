@@ -1,5 +1,6 @@
 package com.balsam.timetable.data.backup
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.os.Build
@@ -13,6 +14,9 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.balsam.timetable.Graph
+import com.balsam.timetable.data.importer.ExportDoc
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.Duration
@@ -39,13 +43,7 @@ object AutoBackup {
     suspend fun backupNow(context: Context): BackupOutcome {
         val semester = Graph.repository.currentSemesterOnce() ?: return BackupOutcome.NoSemester
         val doc = Graph.repository.exportDoc(semester.id) ?: return BackupOutcome.NoSemester
-        val json = runCatching {
-            Json {
-                prettyPrint = true
-                ignoreUnknownKeys = true
-                encodeDefaults = true
-            }.encodeToString(com.balsam.timetable.data.importer.ExportDoc.serializer(), doc)
-        }.getOrElse { return BackupOutcome.Failed }
+        val json = runCatching { encodeDoc(doc) }.getOrElse { return BackupOutcome.Failed }
 
         val name = "课程表备份-${LocalDateTime.now().format(NAME_DATE)}.json"
         val ok = if (Build.VERSION.SDK_INT >= 29) {
@@ -63,29 +61,119 @@ object AutoBackup {
         }
     }
 
-    /** Documents/苦瓜课表/ 下的备份文件名列表（新→旧），两个存储通道统一视角 */
-    fun listBackups(context: Context): List<String> {
+    /** Documents/苦瓜课表/ 下的备份文件（新→旧），两个存储通道统一视角 */
+    data class BackupEntry(
+        val fileName: String,
+        val timestampMillis: Long,
+        val sizeBytes: Long,
+    )
+
+    /** 备份文件名列表（新→旧），两个存储通道统一视角 */
+    fun listBackups(context: Context): List<BackupEntry> {
         if (Build.VERSION.SDK_INT >= 29) {
-            val out = mutableListOf<Pair<String, Long>>()
+            val out = mutableListOf<Triple<String, Long, Long>>()
             context.contentResolver.query(
                 MediaStore.Files.getContentUri("external"),
-                arrayOf(MediaStore.Files.FileColumns.DISPLAY_NAME, MediaStore.Files.FileColumns.DATE_ADDED),
+                arrayOf(
+                    MediaStore.Files.FileColumns.DISPLAY_NAME,
+                    MediaStore.Files.FileColumns.DATE_ADDED,
+                    MediaStore.Files.FileColumns.SIZE,
+                ),
                 "${MediaStore.Files.FileColumns.RELATIVE_PATH}=? AND ${MediaStore.Files.FileColumns.MIME_TYPE}=?",
                 arrayOf("${Environment.DIRECTORY_DOCUMENTS}/$DIR_NAME/", "application/json"),
                 null,
             )?.use { c ->
                 val nameIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
                 val dateIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)
-                while (c.moveToNext()) out.add(c.getString(nameIdx) to c.getLong(dateIdx))
+                val sizeIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
+                while (c.moveToNext()) {
+                    out.add(Triple(c.getString(nameIdx), c.getLong(dateIdx) * 1000, c.getLong(sizeIdx)))
+                }
             }
-            return out.sortedByDescending { it.second }.map { it.first }
+            return out.sortedByDescending { it.second }
+                .map { BackupEntry(it.first, it.second, it.third) }
         }
         return backupDir(context)?.listFiles()
             ?.filter { it.isFile && it.extension == "json" }
             ?.sortedByDescending { it.lastModified() }
-            ?.map { it.name }
+            ?.map { BackupEntry(it.name, it.lastModified(), it.length()) }
             ?: emptyList()
     }
+
+    /** 恢复页列表项：备份文件 + 解析出的摘要（解析失败时 doc 为 null、parseError 说明原因） */
+    data class BackupMeta(
+        val fileName: String,
+        val timestampMillis: Long,
+        val sizeBytes: Long,
+        val doc: ExportDoc?,
+        val parseError: String?,
+    )
+
+    /** 列出并解析全部备份（读文件 + JSON 校验，IO 耗时；调用方放在后台协程里） */
+    suspend fun listBackupMetas(context: Context): List<BackupMeta> = withContext(Dispatchers.IO) {
+        listBackups(context).map { entry ->
+            val text = readBackup(context, entry.fileName)
+            val result = text?.let { runCatching { BackupValidator.parseAndValidate(it) } }
+            BackupMeta(
+                fileName = entry.fileName,
+                timestampMillis = entry.timestampMillis,
+                sizeBytes = entry.sizeBytes,
+                doc = result?.getOrNull(),
+                parseError = when {
+                    text == null -> "无法读取文件内容"
+                    result == null -> "未知错误"
+                    result.isFailure -> result.exceptionOrNull()?.message ?: "备份格式无效"
+                    else -> null
+                },
+            )
+        }
+    }
+
+    /** 读取指定备份文件的 JSON 文本；读不到或读失败返回 null */
+    fun readBackup(context: Context, fileName: String): String? {
+        return if (Build.VERSION.SDK_INT >= 29) {
+            val baseUri = MediaStore.Files.getContentUri("external")
+            val id = context.contentResolver.query(
+                baseUri,
+                arrayOf(MediaStore.Files.FileColumns._ID),
+                "${MediaStore.Files.FileColumns.RELATIVE_PATH}=? AND ${MediaStore.Files.FileColumns.DISPLAY_NAME}=?",
+                arrayOf("${Environment.DIRECTORY_DOCUMENTS}/$DIR_NAME/", fileName),
+                null,
+            )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null } ?: return null
+            runCatching {
+                context.contentResolver
+                    .openInputStream(ContentUris.withAppendedId(baseUri, id))
+                    ?.use { it.readBytes() }
+                    ?.toString(Charsets.UTF_8)
+            }.getOrNull()
+        } else {
+            val f = File(backupDir(context), fileName)
+            if (!f.isFile) return null
+            runCatching { f.readText(Charsets.UTF_8) }.getOrNull()
+        }
+    }
+
+    /**
+     * 完整恢复前的自动快照：把目标学期当前数据写进同一备份目录，
+     * 命名与普通备份区分（恢复前快照-…）。返回 false 时调用方应中止恢复。
+     */
+    fun writeSnapshot(context: Context, semesterName: String, json: String): Boolean {
+        val safeName = semesterName.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(40).ifBlank { "学期" }
+        val name = "恢复前快照-$safeName-${LocalDateTime.now().format(NAME_DATE)}.json"
+        val bytes = json.toByteArray(Charsets.UTF_8)
+        return if (Build.VERSION.SDK_INT >= 29) {
+            writeViaMediaStore(context, name, bytes)
+        } else {
+            writeAppExternal(context, name, bytes)
+        }
+    }
+
+    /** ExportDoc → 格式化 JSON（每日备份与恢复前快照共用一份序列化配置） */
+    fun encodeDoc(doc: ExportDoc): String = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }.encodeToString(ExportDoc.serializer(), doc)
 
     private fun writeViaMediaStore(context: Context, name: String, bytes: ByteArray): Boolean = runCatching {
         val values = ContentValues().apply {

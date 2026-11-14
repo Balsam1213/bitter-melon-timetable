@@ -57,6 +57,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenImport: () -> Unit,
     onOpenHolidays: () -> Unit,
+    onOpenRestore: () -> Unit = {},
 ) {
     val vm: SettingsViewModel = viewModel()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -227,6 +228,7 @@ fun SettingsScreen(
 
             SectionCard("数据") {
                 TextButton(onClick = onOpenImport) { Text("导入课表（Excel / CSV / JSON / 图片识别）") }
+                TextButton(onClick = onOpenRestore) { Text("从备份恢复（自动备份 / JSON 文件）") }
                 TextButton(onClick = { exportLauncher.launch("课程表备份.json") }) {
                     Text("导出当前学期为 JSON")
                 }
@@ -280,7 +282,7 @@ fun SettingsScreen(
             SectionCard("关于") {
                 Text("苦瓜课表 v${com.balsam.timetable.BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold)
                 Text(
-                    "完全离线 · 无需登录 · 数据本地存储",
+                    "本地优先 · 无需登录 · 数据本地存储",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

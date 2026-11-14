@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.data.db.Semester
+import com.balsam.timetable.data.model.SemesterDefaults
 import com.balsam.timetable.data.model.WeekLogic
 import java.time.Instant
 import java.time.LocalDate
@@ -117,9 +118,9 @@ fun SemesterScreen(
     if (creating) {
         SemesterEditDialog(
             title = "新建学期",
-            initialName = semesterNameSuggestion(LocalDate.now()),
-            initialStartDate = mondayOfThisWeek(),
-            initialTotalWeeks = 20,
+            initialName = SemesterDefaults.nameSuggestion(),
+            initialStartDate = SemesterDefaults.startSuggestion(),
+            initialTotalWeeks = SemesterDefaults.TOTAL_WEEKS,
             allowImportAfter = true,
             semesters = semesters,
             onDismiss = { creating = false },
@@ -359,12 +360,3 @@ private fun SemesterEditDialog(
     }
 }
 
-private fun mondayOfThisWeek(): String = WeekLogic.mondayOf(LocalDate.now()).toString()
-
-private fun semesterNameSuggestion(today: LocalDate): String {
-    val year = today.year
-    val month = today.monthValue
-    val academicYear = if (month >= 8) "$year-${year + 1}" else "${year - 1}-$year"
-    val term = if (month in 2..7) "第二学期" else "第一学期"
-    return "${academicYear}学年 $term"
-}

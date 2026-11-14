@@ -262,6 +262,45 @@ class TimetableRepository(private val db: AppDatabase) {
         return importEntries(semesterId, doc.entries.map { it.toParsedEntry() }, clearExisting = false)
     }
 
+    /**
+     * 从备份文档恢复到指定学期（从备份恢复页专用，区别于普通导入的 importFromDoc）：
+     * - [replaceAll] = false：合并恢复——备份课程并入目标学期，重复条目自动跳过，不动学期字段与节次
+     * - [replaceAll] = true：完整恢复——学期名称/开学日/总周数与节次表整体以备份为准，
+     *   清空目标学期全部课程后写入学期条目；备份无节次数据时保留现有节次表
+     * 整体包在一个事务里，任何一步失败全部回滚（原有数据分毫不动）。
+     * 完整恢复前请先经 [com.balsam.timetable.data.backup.AutoBackup.writeSnapshot] 落盘快照。
+     */
+    suspend fun restoreDoc(semesterId: Long, doc: ExportDoc, replaceAll: Boolean): ImportResult {
+        val result = db.withTransaction {
+            val sem = db.semesterDao().byId(semesterId) ?: error("目标学期不存在，可能已被删除")
+            if (replaceAll) {
+                db.semesterDao().update(
+                    sem.copy(
+                        name = doc.semester.name.ifBlank { sem.name },
+                        startDate = doc.semester.startDate,
+                        totalWeeks = doc.semester.totalWeeks.coerceIn(1, 40),
+                    ),
+                )
+                if (doc.slots.isNotEmpty()) {
+                    db.timeSlotDao().deleteForSemester(semesterId)
+                    db.timeSlotDao().insertAll(
+                        doc.slots.mapIndexed { i, s ->
+                            TimeSlot(semesterId = semesterId, orderIndex = i + 1, startTime = s.start, endTime = s.end)
+                        },
+                    )
+                }
+            }
+            // Room 事务可重入：加入上面的同一个事务执行（校验/去重/补节次逻辑与普通导入完全一致）
+            importEntries(
+                semesterId,
+                doc.entries.map { it.toParsedEntry() },
+                clearExisting = replaceAll,
+            )
+        }
+        changed() // 事务确认提交后再统一重排提醒 + 刷小组件
+        return result
+    }
+
     suspend fun exportDoc(semesterId: Long): ExportDoc? {
         val sem = db.semesterDao().byId(semesterId) ?: return null
         val slots = db.timeSlotDao().bySemesterOnce(semesterId).sortedBy { it.orderIndex }

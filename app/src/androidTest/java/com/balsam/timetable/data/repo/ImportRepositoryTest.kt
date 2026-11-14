@@ -4,12 +4,17 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.balsam.timetable.data.db.AppDatabase
+import com.balsam.timetable.data.importer.ExportDoc
+import com.balsam.timetable.data.importer.ExportEntry
+import com.balsam.timetable.data.importer.ExportSemester
+import com.balsam.timetable.data.importer.ExportSlot
 import com.balsam.timetable.data.importer.ImportPlanner
 import com.balsam.timetable.data.importer.ParsedEntry
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -153,5 +158,90 @@ class ImportRepositoryTest {
         assertEquals(1, lessons.size)
         assertEquals((1..16).toSet(), lessons.single().weekSet)
         assertTrue(lessons.single().weeks == (1..16).joinToString(","))
+    }
+
+    // —— restoreDoc（从备份恢复）——
+
+    private fun backupDoc(
+        name: String = "备份学期",
+        startDate: String = "2027-03-01",
+        totalWeeks: Int = 18,
+        slots: List<Pair<String, String>> = listOf("08:30" to "09:15", "09:25" to "10:10"),
+        entries: List<ExportEntry> = listOf(
+            ExportEntry.fromWeeks(
+                name = "数据结构", teacher = "赵老师", location = "Y202",
+                day = 2, startSlot = 1, endSlot = 2, weekSet = (1..18).toSet(),
+            ),
+        ),
+    ) = ExportDoc(
+        semester = ExportSemester(name, startDate, totalWeeks),
+        slots = slots.map { ExportSlot(it.first, it.second) },
+        entries = entries,
+    )
+
+    @Test
+    fun 合并恢复保留现有课程且重复跳过() = runBlocking {
+        repo.importEntries(
+            semesterId,
+            listOf(
+                entry("数据结构", teacher = "赵老师", location = "Y202", day = 2),
+                entry("操作系统", teacher = "钱老师", day = 3),
+            ),
+            clearExisting = false,
+        )
+        val result = repo.restoreDoc(semesterId, backupDoc(), replaceAll = false)
+        assertEquals(0, result.importedCourses)
+        assertEquals(1, result.skippedDuplicates)
+        assertEquals(2, courseCount())
+        // 学期字段不被合并恢复改动
+        assertEquals("测试学期", db.semesterDao().byId(semesterId)!!.name)
+        assertEquals(13, slotCount())
+    }
+
+    @Test
+    fun 完整恢复清空课程并替换学期字段与节次() = runBlocking {
+        repo.importEntries(
+            semesterId,
+            listOf(entry("高等数学", teacher = "王老师"), entry("大学英语", teacher = "李老师", day = 2)),
+            clearExisting = false,
+        )
+        val result = repo.restoreDoc(semesterId, backupDoc(), replaceAll = true)
+        assertEquals(1, result.importedCourses)
+        assertEquals(1, courseCount())
+        val sem = db.semesterDao().byId(semesterId)!!
+        assertEquals("备份学期", sem.name)
+        assertEquals("2027-03-01", sem.startDate)
+        assertEquals(18, sem.totalWeeks)
+        val slots = db.timeSlotDao().bySemesterOnce(semesterId).sortedBy { it.orderIndex }
+        assertEquals(listOf("08:30", "09:25"), slots.map { it.startTime })
+        assertEquals("数据结构", db.courseDao().withLessonsOnce(semesterId).single().course.name)
+    }
+
+    @Test
+    fun 完整恢复无节次数据时保留现有节次表() = runBlocking {
+        val before = slotCount()
+        repo.restoreDoc(
+            semesterId,
+            backupDoc(slots = emptyList(), entries = listOf(ExportEntry.fromWeeks("线性代数", "", "Z1", 1, 1, 2, (1..10).toSet()))),
+            replaceAll = true,
+        )
+        assertEquals(before, slotCount())
+        assertEquals(1, courseCount())
+    }
+
+    @Test
+    fun 恢复失败时事务回滚原有数据不动() = runBlocking {
+        repo.importEntries(
+            semesterId,
+            listOf(entry("高等数学", teacher = "王老师"), entry("大学英语", teacher = "李老师", day = 2)),
+            clearExisting = false,
+        )
+        try {
+            repo.restoreDoc(999L, backupDoc(), replaceAll = true)
+            fail("目标学期不存在应当抛异常")
+        } catch (expected: IllegalStateException) {
+            // 目标学期不存在 → 整个事务回滚
+        }
+        assertEquals(2, courseCount())
     }
 }
