@@ -5,9 +5,9 @@
 
   # Bitter Melon Timetable
 
-  **A fully offline Android timetable · No account · Class reminders · Home-screen widgets**
+  **A local-first Android timetable · No account · Class reminders · Home-screen widgets**
 
-  Import your timetable once, then view and edit courses and get notified before class. No sign-up, no tracking — your schedule never leaves the device.
+  Import your timetable once, then view and edit courses and get notified before class. No sign-up, no tracking — your schedule lives on your own device; the only network use is the academic-affairs import and holiday sync, both on demand.
 
   [![Release](https://img.shields.io/github/v/release/Balsam1213/bitter-melon-timetable)](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest)
   [![CI](https://github.com/Balsam1213/bitter-melon-timetable/actions/workflows/ci.yml/badge.svg)](https://github.com/Balsam1213/bitter-melon-timetable/actions/workflows/ci.yml)
@@ -15,7 +15,7 @@
   ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
   ![Kotlin](https://img.shields.io/badge/Kotlin%20·%20Compose%20·%20M3-7F52FF?logo=kotlin&logoColor=white)
 
-  **[Download](#-download) · [Features](#-features) · [Network & privacy](#-network--privacy) · [Build from source](#-build-from-source)**
+  **[Download](#-download) · [Features](#-features) · [Network & privacy](#-network--privacy) · [User manual](docs/05-user-manual.md) · [Build from source](#-build-from-source)**
 
 </div>
 
@@ -72,16 +72,17 @@ Grab the APK for your device architecture from the [**latest release**](https://
 
 - **Semesters & periods** — multiple semesters (start date drives week numbers, total weeks, set current / archive / delete), new semesters can copy the period table from an old one; every period's start/end time is freely editable with add/remove, adapting to any school's schedule.
 
-- **Backup & migration** — the current semester is exported as JSON to Documents/苦瓜课表 once a day (latest 7 copies kept), can be turned off or triggered manually in Settings, with the backup status visible (success time / red failure warning); JSON import / export for device migration; the timetable can be rendered to an image to save or share.
+- **Backup & restore** — the current semester is exported as JSON to Documents/苦瓜课表 once a day (latest 7 copies kept), can be turned off or triggered manually in Settings, with the backup status visible (success time / red failure warning); "Restore from backup" scans the backup folder and shows each backup's time, semester, and data size, offering **merge restore** (add backup courses into an existing semester) and **full restore** (replace the target semester, with an automatic snapshot of the current data taken first as a safety net), or you can pick any JSON file for device migration; the timetable can also be rendered to an image to save or share.
 
 - **Display & personalization** — three text-size levels (stacked with the system font scale); a compact mode that squeezes row height without shrinking text; four preset app themes (violet / indigo / pine green / rose pink) applied instantly; dark mode that follows the system.
 
 ## 🚀 Quick start
 
-1. On first launch just tap "Import Timetable" — if no semester exists yet, a confirmation dialog appears first (name / start date / total weeks, all editable) before anything is written; you can also create a semester manually under "Semester Management".
+1. On first launch a three-step wizard runs: **create a semester** (name / start date / total weeks prefilled from today's date, all editable) → **choose an import method** → **enter the timetable and turn on reminders**; every step can be skipped and adjusted later in Settings.
 2. Excel / CSV import template: [模板/课程表导入模板.csv](模板/课程表导入模板.csv); JSON format: [模板/课程表示例.json](模板/课程表示例.json).
 3. Check your school's period start/end times under "Period Times" (a common template is built in, fully editable).
 4. Reminder settings live in "Settings"; reminders can be turned off per course in the course editor.
+5. New device / reinstall: copy the backup JSON over, then pick it under "Settings → Restore from backup" — merge or full restore supported.
 
 ## 🔒 Network & privacy
 
@@ -119,8 +120,9 @@ There is no account system; all timetable data lives in the on-device database (
 
 ## 📂 Project docs
 
+- [docs/05-user-manual.md](docs/05-user-manual.md) — user manual (Chinese): install, import, reminders, backup & restore, FAQ
 - [devlog/](devlog/) — changelog, backlog, and per-day dev logs (Chinese)
-- [docs/](docs/) — requirements, architecture, design specs, and workflow guides (Chinese)
+- [docs/](docs/) — requirements, architecture, design specs, workflow, and the release checklist (Chinese)
 
 ## ⚠️ Known limitations
 

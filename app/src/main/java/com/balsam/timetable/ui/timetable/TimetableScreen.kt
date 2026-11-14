@@ -88,7 +88,7 @@ private fun EmptyHome(onOpenImport: () -> Unit, onOpenSemesters: () -> Unit) {
         Text("欢迎来到苦瓜课表", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "完全离线、无需登录。三步开始使用：",
+            "本地优先、无需登录。三步开始使用：",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
