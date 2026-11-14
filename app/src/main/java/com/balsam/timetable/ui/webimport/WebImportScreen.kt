@@ -12,8 +12,10 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,18 +25,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -62,9 +68,16 @@ import org.json.JSONTokener
  * 用户手动登录并进入「我的选课记录」或「本学期周课表」页面后，
  * 点「确认导入」抓取当前页面 HTML 解析出课程，转交导入预览页确认。
  *
- * 安全边界：只放行 http/https；明文 http 与跳转站外都要用户确认；
- * 证书异常按站点记忆本会话的选择。这些决定只在本页面存活，退出即失效。
+ * 安全边界（默认全部收紧，确有需要的校园系统可在「⋮」菜单临时放开）：
+ * - 只放行 http/https；明文 http 与跳转站外都要用户确认；证书异常按站点记忆本会话的选择
+ * - 混合内容（https 页面加载 http 子资源）默认禁止；第三方 Cookie 默认关闭
+ * - 非网页 scheme 只放行 tel:/mailto:/sms:/geo:，其余（含 intent:）不交给系统
+ * - 「清除登录状态」可主动清掉本应用持有的教务网 Cookie 与站点存储
+ * 这些决定只在本页面存活，退出即失效。
  */
+
+/** 允许交给系统应用处理的非网页 scheme 白名单；intent: 等一律不在列 */
+private val EXTERNAL_SCHEME_WHITELIST = setOf("tel", "mailto", "sms", "geo")
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -91,11 +104,22 @@ fun WebImportScreen(
     var sslDenied by remember { mutableStateOf(setOf<String>()) }
     var httpApproved by remember { mutableStateOf(setOf<String>()) }
     var approvedDomains by remember { mutableStateOf(setOf<String>()) }
+    // 安全开关：默认严格（混合内容禁、第三方 Cookie 关），按需在菜单临时放开并持久化
+    var allowMixed by remember { mutableStateOf(false) }
+    var thirdPartyCookies by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var clearLoginPrompt by remember { mutableStateOf(false) }
+    // 本页解析结果是否已转交预览页；未发布就离开时清掉，防止遗留旧数据被下次误消费
+    var published by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // 从设置读取持久化的教务网地址；旧版本可能存进过 file:// 等非法值，读出时重新校验
+    // 从设置读取持久化的教务网地址与安全开关；旧版本可能存进过 file:// 等非法值，读出时重新校验
     LaunchedEffect(Unit) {
-        val saved = normalizeUrl(Graph.settingsRepository.webImportUrlOnce()) ?: DEFAULT_WEB_IMPORT_URL
+        val sr = Graph.settingsRepository
+        allowMixed = sr.webImportAllowMixedContentOnce()
+        thirdPartyCookies = sr.webImportThirdPartyCookiesOnce()
+        webView?.let { applyWebSecuritySettings(it, allowMixed, thirdPartyCookies) }
+        val saved = normalizeUrl(sr.webImportUrlOnce()) ?: DEFAULT_WEB_IMPORT_URL
         url = saved
         registrableDomain(Uri.parse(saved).host)?.let { approvedDomains = approvedDomains + it }
         if (!urlLoaded) {
@@ -104,9 +128,27 @@ fun WebImportScreen(
         }
     }
 
+    // 菜单里切换开关后立即生效
+    LaunchedEffect(allowMixed, thirdPartyCookies) {
+        webView?.let { applyWebSecuritySettings(it, allowMixed, thirdPartyCookies) }
+    }
+
     // 离开页面时把登录态落盘，下次进来不用重新登录
     DisposableEffect(Unit) {
-        onDispose { CookieManager.getInstance().flush() }
+        onDispose {
+            CookieManager.getInstance().flush()
+            if (!published) WebImportBus.pendingEntries = null
+        }
+    }
+
+    /** 清除教务网登录状态：Cookie、站点存储、缓存一起清，需要重新登录 */
+    fun clearLoginState() {
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        WebStorage.getInstance().deleteAllData()
+        webView?.clearCache(true)
+        webView?.reload()
+        Toast.makeText(Graph.appContext, "已清除登录状态，下次进入需重新登录", Toast.LENGTH_SHORT).show()
     }
 
     fun grabAndParse() {
@@ -126,6 +168,7 @@ fun WebImportScreen(
                         com.balsam.timetable.data.html.HtmlTimetableParser.parse(html)
                     }
                     WebImportBus.pendingEntries = entries
+                    published = true
                     busy = false
                     onParsed()
                 } catch (e: Exception) {
@@ -148,6 +191,46 @@ fun WebImportScreen(
                 actions = {
                     IconButton(onClick = { webView?.reload() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "重新加载")
+                    }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "更多设置")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("允许混合内容（不安全）") },
+                                trailingIcon = {
+                                    Switch(checked = allowMixed, onCheckedChange = {
+                                        allowMixed = it
+                                        scope.launch { Graph.settingsRepository.setWebImportAllowMixedContent(it) }
+                                    })
+                                },
+                                onClick = {
+                                    allowMixed = !allowMixed
+                                    scope.launch { Graph.settingsRepository.setWebImportAllowMixedContent(allowMixed) }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("接受第三方 Cookie") },
+                                trailingIcon = {
+                                    Switch(checked = thirdPartyCookies, onCheckedChange = {
+                                        thirdPartyCookies = it
+                                        scope.launch { Graph.settingsRepository.setWebImportThirdPartyCookies(it) }
+                                    })
+                                },
+                                onClick = {
+                                    thirdPartyCookies = !thirdPartyCookies
+                                    scope.launch { Graph.settingsRepository.setWebImportThirdPartyCookies(thirdPartyCookies) }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("清除教务网登录状态") },
+                                onClick = {
+                                    menuOpen = false
+                                    clearLoginPrompt = true
+                                },
+                            )
+                        }
                     }
                     if (busy) {
                         CircularProgressIndicator(
@@ -247,11 +330,13 @@ fun WebImportScreen(
                             settings.displayZoomControls = false
                             settings.useWideViewPort = true
                             settings.loadWithOverviewMode = true
-                            // 教务网/校内系统常混用 http 资源与 http 子站，浏览器默认放行而 WebView 默认拦截
-                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                            // 混合内容默认禁止（https 页面不许加载 http 子资源）；
+                            // 确有需要的校园系统可在「⋮」菜单打开，持久化到设置
+                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                             // 去掉 UA 中的 "wv" 标记，避免站点对 WebView 降级处理
                             settings.userAgentString = settings.userAgentString.replace("; wv)", "")
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                            // 第三方 Cookie 默认关闭（个别学校 SSO 跨域需要时在菜单打开）
+                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
                             webChromeClient = object : WebChromeClient() {
                                 override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
                                     val line = "[${consoleMessage.messageLevel()}] " +
@@ -276,9 +361,21 @@ fun WebImportScreen(
                                         offSitePrompt = target.toString()
                                         return true
                                     }
-                                    // tel:/mailto:/intent: 等交给系统应用处理
-                                    runCatching {
-                                        view.context.startActivity(Intent(Intent.ACTION_VIEW, target))
+                                    // 非网页 scheme：仅放行白名单（tel:/mailto:/sms:/geo:），
+                                    // 其余（尤其 intent: 这种可拉起任意组件的）不交给系统
+                                    if (scheme in EXTERNAL_SCHEME_WHITELIST) {
+                                        val launched = runCatching {
+                                            view.context.startActivity(Intent(Intent.ACTION_VIEW, target))
+                                        }
+                                        if (launched.isFailure) {
+                                            Toast.makeText(view.context, "无法打开该链接", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        Toast.makeText(
+                                            view.context,
+                                            "不支持在应用内打开 ${scheme ?: "该"} 链接",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
                                     }
                                     return true
                                 }
@@ -477,6 +574,28 @@ fun WebImportScreen(
         )
     }
 
+    if (clearLoginPrompt) {
+        AlertDialog(
+            onDismissRequest = { clearLoginPrompt = false },
+            title = { Text("清除教务网登录状态") },
+            text = {
+                Text(
+                    "将删除本应用保存的教务网 Cookie、站点存储与缓存，" +
+                        "下次进入教务网导入需要重新登录。不影响你的课表数据。",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    clearLoginPrompt = false
+                    clearLoginState()
+                }) { Text("清除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { clearLoginPrompt = false }) { Text("取消") }
+            },
+        )
+    }
+
     if (editUrl) {
         var edited by remember { mutableStateOf(url) }
         var editError by remember { mutableStateOf<String?>(null) }
@@ -529,6 +648,16 @@ fun WebImportScreen(
 }
 
 private data class SslPrompt(val errCode: Int, val handler: SslErrorHandler, val host: String)
+
+/** 应用两项安全开关：混合内容默认禁止、第三方 Cookie 默认关闭；菜单切换后即时生效 */
+private fun applyWebSecuritySettings(webView: WebView, allowMixed: Boolean, thirdPartyCookies: Boolean) {
+    webView.settings.mixedContentMode = if (allowMixed) {
+        WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+    } else {
+        WebSettings.MIXED_CONTENT_NEVER_ALLOW
+    }
+    CookieManager.getInstance().setAcceptThirdPartyCookies(webView, thirdPartyCookies)
+}
 
 /** 只放行 http/https：无 scheme 补 https；file:// 等其他 scheme 返回 null（拒绝） */
 private fun normalizeUrl(u: String): String? {

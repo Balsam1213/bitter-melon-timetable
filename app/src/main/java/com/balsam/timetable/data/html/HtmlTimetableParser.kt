@@ -5,9 +5,19 @@ import com.balsam.timetable.data.importer.ParsedEntry
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 
-/** 教务网导入的解析结果传递通道（WebImportScreen → ImportScreen 预览页） */
+/**
+ * 教务网导入的解析结果传递通道（WebImportScreen → ImportScreen 预览页），一次性交接：
+ * WebImportScreen 写入并导航，ImportScreen 用 [consume] 读后即清；WebImportScreen
+ * 退出时若未发布过也会清空，避免旧数据残留。
+ *
+ * 约束：仅限上述两个文件使用。新增导入入口一律通过导航参数 / ViewModel 传递，
+ * 不得引用这个全局可变变量（后续计划迁移到 SavedStateHandle 或导入状态仓库，见 devlog/TODO.md）。
+ */
 object WebImportBus {
     var pendingEntries: List<ParsedEntry>? = null
+
+    /** 读后即清的一次性消费；仅限 ImportScreen 调用 */
+    fun consume(): List<ParsedEntry>? = pendingEntries.also { pendingEntries = null }
 }
 
 /**

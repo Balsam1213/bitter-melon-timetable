@@ -65,6 +65,10 @@ class SettingsRepository(private val context: Context) {
 
     private object Keys {
         val WEB_IMPORT_URL = stringPreferencesKey("web_import_url")
+        /** 教务网 WebView 允许 https 页面加载 http 子资源；默认关，个别混合内容的校园系统才开 */
+        val WEB_IMPORT_ALLOW_MIXED = booleanPreferencesKey("web_import_allow_mixed_content")
+        /** 教务网 WebView 接受第三方 Cookie（部分学校 SSO 需要）；默认关 */
+        val WEB_IMPORT_THIRD_PARTY_COOKIES = booleanPreferencesKey("web_import_third_party_cookies")
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val LEAD_MINUTES = intPreferencesKey("lead_minutes")
         val SHOW_WEEKEND = booleanPreferencesKey("show_weekend")
@@ -77,6 +81,8 @@ class SettingsRepository(private val context: Context) {
         val LAST_BACKUP_TIME = longPreferencesKey("last_backup_time")
         /** 最近一次备份成功与否；null = 旧版本写入（只记成功）或从未备份 */
         val LAST_BACKUP_OK = booleanPreferencesKey("last_backup_ok")
+        /** 首启向导是否已完成/跳过；false = 新装用户还没走过引导 */
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val HOLIDAY_OFFICIAL = stringSetPreferencesKey("holiday_official")
         val HOLIDAY_ADDED = stringSetPreferencesKey("holiday_added")
         val HOLIDAY_REMOVED = stringSetPreferencesKey("holiday_removed")
@@ -95,6 +101,20 @@ class SettingsRepository(private val context: Context) {
     suspend fun webImportUrlOnce(): String = webImportUrl.first()
 
     suspend fun setWebImportUrl(v: String) = context.settingsStore.edit { it[Keys.WEB_IMPORT_URL] = v }
+
+    /** 教务网 WebView：https 页面允许加载 http 子资源（混合内容），默认禁止 */
+    suspend fun webImportAllowMixedContentOnce(): Boolean =
+        context.settingsStore.data.first()[Keys.WEB_IMPORT_ALLOW_MIXED] ?: false
+
+    suspend fun setWebImportAllowMixedContent(v: Boolean) =
+        context.settingsStore.edit { it[Keys.WEB_IMPORT_ALLOW_MIXED] = v }
+
+    /** 教务网 WebView：接受第三方 Cookie（个别学校 SSO 需要），默认禁止 */
+    suspend fun webImportThirdPartyCookiesOnce(): Boolean =
+        context.settingsStore.data.first()[Keys.WEB_IMPORT_THIRD_PARTY_COOKIES] ?: false
+
+    suspend fun setWebImportThirdPartyCookies(v: Boolean) =
+        context.settingsStore.edit { it[Keys.WEB_IMPORT_THIRD_PARTY_COOKIES] = v }
 
     val settings: Flow<AppSettings> = context.settingsStore.data.map { p ->
         AppSettings(
@@ -247,4 +267,10 @@ class SettingsRepository(private val context: Context) {
         context.settingsStore.data.first()[Keys.NOTIF_ASKED] ?: false
 
     suspend fun markNotificationAsked() = context.settingsStore.edit { it[Keys.NOTIF_ASKED] = true }
+
+    /** 首启向导完成/跳过标记；从未写过 = 新装用户 */
+    suspend fun onboardingDone(): Boolean =
+        context.settingsStore.data.first()[Keys.ONBOARDING_DONE] ?: false
+
+    suspend fun setOnboardingDone() = context.settingsStore.edit { it[Keys.ONBOARDING_DONE] = true }
 }
