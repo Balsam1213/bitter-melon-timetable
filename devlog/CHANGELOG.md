@@ -1,5 +1,15 @@
 # 更新日志
 
+## v1.5.1（2026-11-15）
+
+**大字体校验补课 + 2027 节假日预置 + Compose UI 测试**
+
+- **大字体校验（font_scale 1.5，10-26 教训项补验完成）**：走查全部 v1.4/v1.5 新页面并修复 6 处布局风险——恢复页「恢复方式」说明列未加权（70 字文案大字体下单行溢出）、设置页备份状态行、两处导入方式卡片的描述列、「先建个学期」弹窗内容无滚动、固定 48dp 主按钮改 `heightIn(min)`（大字体两行文案不被裁切）、目标学期按钮文本限单行。规范固化进 `docs/03` 第 7 节（weight 列 / verticalScroll / heightIn 约定 + 发版前 1.5 倍走查要求）
+- **2027 年法定节假日预置**（国办 2026-11 发布，与 holiday-cn 2027.json 核对一致）：放假 29 天（元旦 3 / 春节 9 / 清明 3 / 劳动 5 / 端午 1 / 中秋 1 / 国庆 7）+ 调休上班 5 天（1/31、2/14、5/8、9/26、10/09）；预置合计两年放假 62 天、调休 11 天；新增 `SettingsDefaultsTest` 守门（日期全量、星期、无交集、格式、不越界未公布年份）
+- **Compose UI 测试（androidTest 首次覆盖 UI 层，18 个 instrumented 全绿）**：新增 `ui-test-junit4`/`ui-test-manifest` 依赖与 `Graph.swapForTest` 测试钩子（内存库注入）；`RestoreScreenUiTest`（恢复预览/合并恢复执行/完整恢复二次确认）、`OnboardingScreenUiTest`（向导预填/创建学期/导入方式/就绪页）、`ImportPreviewUiTest`（无效条目与冲突标注 + **font_scale 1.5 下关键元素可达的自动化回归线**）；Screen 增加 `vm` 默认参数注入（生产调用不变）；`RestoreViewModel.refresh` 改 copy 保留已选状态（修复 init 异步扫描覆盖 select 的竞态）
+- 文档：`docs/03` 新增大字体验证章节；`docs/02` 同步预置数据与测试清单
+- `versionName` 1.5.1 / `versionCode` 7
+
 ## v1.5（2026-11-15）
 
 **备份恢复 + 首启向导 + 提醒窗口修正 + WebView 再收紧**

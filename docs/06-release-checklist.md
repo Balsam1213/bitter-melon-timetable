@@ -18,12 +18,26 @@
    - 上传前抽查签名：`apksigner verify --print-certs app-arm64-v8a-release.apk`。
 7. **CI**：确认 main 分支最新 commit 的 GitHub Actions（lint + 单测）绿。
 
-## 2. 发布 Release
+## 2. 发布 Release（v1.5.1 起自动：打 tag 即发版）
 
-1. 新建 Release：tag 用 `v{versionName}`（如 `v1.5`），标题 `v{versionName}`。
-2. 描述按下面模板填写（中英双语），**保留「安装说明」「升级说明」两个固定段落**，按本版实际情况修改升级段（如签名变更、迁移提示）。
-3. 上传 4 个 APK，文件名保持构建产物原名（README 的直链按文件名拼 `releases/latest/download/`）。
-4. 发布后自检两条直链能下载（README 首推 arm64 与 universal）。
+**一次性配置**（签名密钥走 GitHub 加密 Secrets，不进仓库）：
+
+```bash
+# 在仓库根目录执行；KEYSTORE_FILE 指向密钥文件（见本地 keystore.properties 的 storeFile）
+gh secret set ANDROID_KEYSTORE_BASE64 < <(base64 -w0 "$KEYSTORE_FILE")
+gh secret set ANDROID_KEYSTORE_PASSWORD < <(grep -oP '^storePassword=\K.*' keystore.properties)
+gh secret set ANDROID_KEY_ALIAS      < <(grep -oP '^keyAlias=\K.*' keystore.properties)
+gh secret set ANDROID_KEY_PASSWORD   < <(grep -oP '^keyPassword=\K.*' keystore.properties)
+```
+
+**发版流程**：
+
+1. 确认第 1 节的版本号 / CHANGELOG / 文档已就绪，提交并推送 main。
+2. 打 tag 并推送：`git tag v{versionName} && git push origin v{versionName}`。
+3. `.github/workflows/release.yml` 自动执行：**校验 tag == versionName → lint → 单测 → 从 Secrets 还原正式签名 → assembleRelease → 从 CHANGELOG 提取本版段落 + `.github/release-notes-footer.md`（固定安装/升级说明，中英双语）生成 Release notes → 挂 4 个 APK（arm64-v8a / armeabi-v7a / x86_64 / universal）并发布**。
+4. 发布后自检：Actions 绿；README 下载表两条直链能下载（按文件名拼 `releases/latest/download/`）；Release 页 notes 含「安装说明/升级说明」。
+
+**备用：手动发版**（CI 或 Secrets 不可用时）——按第 1 节构建，Release notes 按下面模板填写，**保留「安装说明」「升级说明」两个固定段落**，手动上传 4 个 APK（文件名保持构建产物原名）。
 
 ## 3. Release Notes 模板（中文）
 

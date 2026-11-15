@@ -31,10 +31,14 @@
 - [x] 用户手册 `docs/05-user-manual.md`、发版清单与 Release notes 模板 `docs/06-release-checklist.md`
 - [x] HolidaySyncClient UA 跟随版本号 + 镜像 URL https 守门单测
 
+## v1.5.1（2026-11-15 已完成）
+
+- [x] **补验：font_scale 1.5 下过一遍设置页与导入弹窗**（含 v1.5 恢复页/向导；修复 6 处布局风险，规范固化进 docs/03 第 7 节；ImportPreviewUiTest 留下 1.5 倍自动化回归线）
+- [x] **2027 年节假日预置更新**（国办 2026-11 发布已核实；DEFAULT_HOLIDAYS 62 天 / DEFAULT_MAKEUP_DAYS 11 天 + SettingsDefaultsTest 守门）
+- [x] Compose UI 测试（androidTest 首次覆盖 UI 层：RestoreScreen/OnboardingScreen/ImportPreview，18 个 instrumented 全绿）
+
 ## v1.6（候选，未排期）
 
-- [ ] **补验：font_scale 1.5 下过一遍设置页与导入弹窗**（v1.4 改了备份状态行/提醒区块/「先建个学期」窗/预览标记，发版前模拟器故障未验；10-26 的教训项，下次模拟器可用立即补；v1.5 新增的恢复页/向导一并过）
-- [ ] **时间驱动：2027 年节假日预置更新**（国务院约 2026 年 11 月公布；核对 holiday-cn 2027.json → 更新 `DEFAULT_HOLIDAYS` / `DEFAULT_MAKEUP_DAYS` → 发小版本）
 - [ ] **WebImportBus 迁移**：改走 ViewModel / SavedStateHandle / 明确的导入状态仓库，删除全局可变变量（v1.5 只做了约束与清理，见 `HtmlTimetableParser.kt` 注释）
 - [ ] **扫码迁移（跨设备二维码传课表）**：v1.5 评估后暂缓——单张二维码上限约 2.9KB，一学期课表 gzip 后经常超限需分片；需新增相机权限、预览界面与条码识别依赖。优先级低，先用「JSON 文件 + 从文件选择恢复」
 - [ ] 首页横幅提示（备份失败/提醒受限的更高优先级暴露；v1.4 只做了设置页）

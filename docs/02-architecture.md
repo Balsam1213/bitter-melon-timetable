@@ -72,7 +72,7 @@ app/src/main/java/com/balsam/timetable/
 - DataStore 6 集合 + 1 映射：放假/调休各一套 `official / added / removed`，另 `makeup_weekdays`（"yyyy-MM-dd=4"）
 - **生效 = (官方 ∪ 手动) − 手动删**；同日期冲突放假优先；`makeup_weekdays` 只由用户写入
 - 在线同步：`HolidaySyncClient` 依次尝试 3 个 CDN 的 holiday-cn `{year}.json`（当年+次年），宽松递归解析（`isOffDay/holiday` 双字段名兼容）；Repository 负责每日限次与按年替换官方集合
-- 预置：`DEFAULT_HOLIDAYS`（2026 放假 34 天）、`DEFAULT_MAKEUP_DAYS`（2026 调休 6 天），与 holiday-cn 2026.json 核对一致
+- 预置：`DEFAULT_HOLIDAYS`（2026-2027 两年，放假 62 天）、`DEFAULT_MAKEUP_DAYS`（调休 11 天），与 holiday-cn 2026/2027.json 核对一致（2027 为国办 2026-11 发布安排，有单测守门 `SettingsDefaultsTest`）
 - 任何节假日写操作后必须 `reschedule()` + 刷新小组件（`HolidayViewModel.onDataChanged`）
 
 ### 4.4 数据变更联动
@@ -104,8 +104,8 @@ Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、�
 
 ## 5. 测试与静态检查
 
-- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）等（共 145 个）
-- `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）、ImportRepositoryTest（in-memory Room：重复导入跳过/无效过滤/节次补行/clearExisting/**restoreDoc 合并恢复/完整恢复/失败回滚**）
+- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）等（共 151 个）
+- `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）、ImportRepositoryTest（in-memory Room：重复导入跳过/无效过滤/节次补行/clearExisting/**restoreDoc 合并恢复/完整恢复/失败回滚**）、**Compose UI 测试（v1.5.1，依赖 ui-test-junit4 + `Graph.swapForTest` 换内存库）**：RestoreScreenUiTest（恢复预览/合并执行/完整恢复二次确认）、OnboardingScreenUiTest（向导预填/创建/导入方式/就绪页）、ImportPreviewUiTest（无效与冲突标注 + **font_scale 1.5 回归线**）。UI 测试 Screen 需暴露 `vm` 默认参数注入；跑法 `connectedDebugAndroidTest -PdisableSplits`
 - **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / `ReminderPlanner` / `ImportPlanner` / 解析器 / 备份校验 / 小组件数据构建必须先补/改对应单测；数据迁移必须写转换函数单测 + instrumented 迁移测试
 - lint：`:app:lintDebug` 纳入提交自查（错误零容忍）；detekt 因本机仅有 JDK 25/26 而 detekt 1.23.8 CLI 不支持，暂缓（见 TODO）
 - 模拟器冒烟：`timetable_test` AVD（x86_64，装 `app-universal-debug.apk`）；涉及 DB 迁移的版本要实测「装旧版 release → 覆盖升级 → 核对数据」；instrumented 测试遇 ABI 安装冲突加 `-PdisableSplits`
