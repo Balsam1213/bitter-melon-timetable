@@ -122,10 +122,12 @@ fun AppNavHost() {
         composable(Routes.WEB_IMPORT) {
             com.balsam.timetable.ui.webimport.WebImportScreen(
                 onBack = { nav.popBackStack() },
-                onParsed = {
+                onParsed = { entries ->
+                    // 解析结果经导航 SavedStateHandle 一次性传递（v1.6 起，替代 WebImportBus 全局变量）
                     nav.navigate(Routes.IMPORT.replace("import?fresh={fresh}", "import?fresh=false")) {
                         popUpTo(Routes.HOME)
                     }
+                    nav.currentBackStackEntry?.savedStateHandle?.set("import_handoff", entries)
                 },
             )
         }
@@ -141,6 +143,7 @@ fun AppNavHost() {
                 onBack = { nav.popBackStack() },
                 onManualAdd = { nav.navigate(Routes.course()) },
                 onOpenWebImport = { nav.navigate(Routes.WEB_IMPORT) },
+                handoff = entry.savedStateHandle.remove<List<com.balsam.timetable.data.importer.ParsedEntry>>("import_handoff"),
             )
         }
     }

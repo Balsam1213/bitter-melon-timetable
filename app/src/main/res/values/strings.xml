@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">苦瓜课表</string>
+    <string name="next_class_widget_description">显示下一节课的课程名、地点与开课时间</string>
 </resources>

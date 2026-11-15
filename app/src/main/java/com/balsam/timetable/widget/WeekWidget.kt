@@ -83,7 +83,10 @@ class WeekWidget : GlanceAppWidget() {
             WeekData("数据加载失败", null, errorText = "数据加载失败，点这里重试")
         }
         val openIntent = Intent(context, MainActivity::class.java)
-        provideContent { Content(data, openIntent) }
+        val theme = Graph.settingsRepository.once().colorTheme
+        provideContent {
+            GlanceTheme(colors = widgetColors(theme)) { Content(data, openIntent) }
+        }
     }
 
     private suspend fun buildWeekData(): WeekData {

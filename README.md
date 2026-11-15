@@ -46,7 +46,7 @@ Grab the APK for your device architecture from the [**latest release**](https://
 
 ## ✨ Features
 
-- **Weekly timetable grid** — courses shown by week with the current week number calculated automatically; swipe between weeks, pull down to jump, today highlighted; the weekend column can be toggled.
+- **Today / week dual view** — the home screen opens on a **today view**: a status card with the current or next class and a countdown, plus a full-day period timeline (in-progress highlighted); the **week view** is the full weekly grid with swipe between weeks, pull down to jump, today highlighted, and a weekend toggle.
 
 - **Five import methods** — everything goes through a preview step before anything is written: entries with problems are flagged in red with the reason and unchecked by default; fix them and re-check to import.
   - Excel (.xlsx) / CSV files (UTF-8 and GBK encodings both work)
@@ -68,7 +68,7 @@ Grab the APK for your device architecture from the [**latest release**](https://
 
 - **Holidays & makeup workdays** — calendar-based management (Settings → Holidays → calendar): statutory holidays are marked 休 (off, red) with no reminders that day; makeup workdays are marked 班 and remind according to the weekday you assign (default: the day's own weekday). Pre-seeded with the State Council's 2026 schedule (including 6 makeup workdays) and auto-synced online (holiday-cn source, next year's schedule filled in once published); your manual edits are never overwritten by the sync.
 
-- **Home-screen widgets** — "Today": today's courses with the current one highlighted, tap to open the app, shows 今天放假 (day off) on statutory holidays and the assigned weekday's courses on makeup workdays. "This week" (about 4×3): one column per day with today highlighted, following the "show weekend" setting.
+- **Home-screen widgets** — "Today": today's courses with the current one highlighted, tap to open the app, shows 今天放假 (day off) on statutory holidays and the assigned weekday's courses on makeup workdays. "This week" (about 4×3): one column per day with today highlighted, following the "show weekend" setting. "Next class" (v1.6): course name, room, start/end time with a countdown; flips automatically when a class ends or the next one starts. All three widgets follow the in-app theme color.
 
 - **Semesters & periods** — multiple semesters (start date drives week numbers, total weeks, set current / archive / delete), new semesters can copy the period table from an old one; every period's start/end time is freely editable with add/remove, adapting to any school's schedule.
 

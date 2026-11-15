@@ -190,6 +190,26 @@ class ImportViewModel : ViewModel() {
         _ui.value = s.copy(entries = s.entries.mapIndexed { i, e -> if (i == index) entry else e })
     }
 
+    /** 存在「周次全部超出学期总周数」的条目时，预览页提供一键平移修复 */
+    fun hasOutOfRangeWeeks(): Boolean =
+        _ui.value.entries.any { ImportPlanner.validate(it, _ui.value.totalWeeks) == ImportPlanner.REASON_WEEKS_OUT_OF_RANGE }
+
+    /** 一键修复：全超界条目平移进学期内（保持区间形状）并自动勾选；返回修复条数 */
+    fun fixOutOfRangeWeeks(): Int {
+        val s = _ui.value
+        var fixed = 0
+        val updated = s.entries.map { e ->
+            if (ImportPlanner.validate(e, s.totalWeeks) == ImportPlanner.REASON_WEEKS_OUT_OF_RANGE) {
+                fixed++
+                ImportPlanner.shiftWeeksIntoRange(e, s.totalWeeks).copy(include = true)
+            } else {
+                e
+            }
+        }
+        _ui.value = s.copy(entries = updated)
+        return fixed
+    }
+
     /** 教务网导入等外部来源：直接装载解析结果进入预览 */
     fun loadExternal(entries: List<com.balsam.timetable.data.importer.ParsedEntry>) {
         viewModelScope.launch {

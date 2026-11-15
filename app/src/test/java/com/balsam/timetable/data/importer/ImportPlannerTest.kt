@@ -259,4 +259,28 @@ class ImportPlannerTest {
             map[0]!!.toSet(),
         )
     }
+
+    // —— shiftWeeksIntoRange（一键平移超界周次）——
+
+    @Test
+    fun `全超界区间整体平移到学期末尾`() {
+        val e = entry(weeks = (17..20).toSet())
+        val shifted = ImportPlanner.shiftWeeksIntoRange(e, 16)
+        assertEquals((13..16).toSet(), shifted.weeks)
+        assertEquals(null, ImportPlanner.validate(shifted, 16))
+    }
+
+    @Test
+    fun `稀疏全超界集合平移后保持形状`() {
+        val shifted = ImportPlanner.shiftWeeksIntoRange(entry(weeks = setOf(18, 20)), 16)
+        assertEquals(setOf(14, 16), shifted.weeks)
+    }
+
+    @Test
+    fun `未超界与无学期时原样返回`() {
+        val e = entry(weeks = (1..16).toSet())
+        assertEquals(e, ImportPlanner.shiftWeeksIntoRange(e, 16))
+        val out = entry(weeks = (17..20).toSet())
+        assertEquals(out, ImportPlanner.shiftWeeksIntoRange(out, 0))
+    }
 }

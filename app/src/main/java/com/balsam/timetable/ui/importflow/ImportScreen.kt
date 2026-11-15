@@ -70,6 +70,8 @@ fun ImportScreen(
     onManualAdd: () -> Unit,
     onOpenWebImport: () -> Unit = {},
     vm: ImportViewModel = viewModel(),
+    /** 教务网导入等外部来源经导航 SavedStateHandle 一次性传入的解析结果（v1.6 起） */
+    handoff: List<com.balsam.timetable.data.importer.ParsedEntry>? = null,
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
     LaunchedEffect(freshSemester) { vm.freshSemester = freshSemester }
@@ -83,11 +85,9 @@ fun ImportScreen(
 
     LaunchedEffect(Unit) { vm.reset() }
 
-    // 接收教务网导入的解析结果（一次性消费），进入统一的预览确认流程
-    LaunchedEffect(Unit) {
-        com.balsam.timetable.data.html.WebImportBus.consume()?.let { entries ->
-            vm.loadExternal(entries)
-        }
+    // 接收教务网导入的解析结果（导航 SavedStateHandle 已在读取时移除，天然一次性），进入统一预览
+    LaunchedEffect(handoff) {
+        handoff?.let { entries -> vm.loadExternal(entries) }
     }
 
     Scaffold(
@@ -243,6 +243,12 @@ fun ImportScreen(
                 // 条目间时间冲突：仅提示不拦导入（勾选变化会实时重算）
                 val conflicts = remember(state.entries, state.totalWeeks) {
                     ImportPlanner.conflictsAmong(state.entries, state.totalWeeks)
+                }
+                // 一键修复全超界条目：平移进学期内（保持区间形状），修复后红字自动消失
+                if (vm.hasOutOfRangeWeeks()) {
+                    TextButton(onClick = { vm.fixOutOfRangeWeeks() }) {
+                        Text("一键平移超出学期总周数的周次")
+                    }
                 }
                 if (conflicts.isNotEmpty()) {
                     Text(

@@ -99,10 +99,18 @@ class RestoreScreenUiTest {
         }
     }
 
+    /** 等待 VM 的异步扫描完成、目标学期就绪（首帧可能在 refresh 完成前渲染列表态） */
+    private fun waitUntilPreviewReady() {
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText("当前学期（当前）").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     @Test
     fun 恢复预览展示备份内容两种模式与目标学期() {
         vm.select(backupMeta())
         setContent()
+        waitUntilPreviewReady()
         compose.onNodeWithText("备份内容").assertExists()
         compose.onNodeWithText("学期：备份学期").assertExists()
         compose.onNodeWithText("开学日期：2027-03-01（第 1 周周一）").assertExists()
@@ -119,6 +127,7 @@ class RestoreScreenUiTest {
     fun 合并恢复执行后显示结果卡且重复跳过() {
         vm.select(backupMeta())
         setContent()
+        waitUntilPreviewReady()
         compose.onNodeWithText("合并恢复到「当前学期」").performClick()
         // 先等执行完成（结果或错误任一），失败时断言消息会带上 error 内容便于诊断
         compose.waitUntil(10_000) {

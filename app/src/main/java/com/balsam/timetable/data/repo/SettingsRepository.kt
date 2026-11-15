@@ -16,6 +16,7 @@ import com.balsam.timetable.data.model.ColorTheme
 import com.balsam.timetable.data.model.DayStatus
 import com.balsam.timetable.data.model.HolidayCalendar
 import com.balsam.timetable.data.model.HolidayFetch
+import com.balsam.timetable.data.model.HomeViewMode
 import com.balsam.timetable.data.model.HolidayLogic
 import com.balsam.timetable.data.model.HolidayStore
 import com.balsam.timetable.data.model.TextScale
@@ -98,6 +99,8 @@ class SettingsRepository(private val context: Context) {
         val LAST_BACKUP_OK = booleanPreferencesKey("last_backup_ok")
         /** 首启向导是否已完成/跳过；false = 新装用户还没走过引导 */
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        /** 首页视图模式（今日/本周），默认今日 */
+        val HOME_VIEW_MODE = stringPreferencesKey("home_view_mode")
         val HOLIDAY_OFFICIAL = stringSetPreferencesKey("holiday_official")
         val HOLIDAY_ADDED = stringSetPreferencesKey("holiday_added")
         val HOLIDAY_REMOVED = stringSetPreferencesKey("holiday_removed")
@@ -135,12 +138,13 @@ class SettingsRepository(private val context: Context) {
         AppSettings(
             reminderEnabled = p[Keys.REMINDER_ENABLED] ?: true,
             leadMinutes = p[Keys.LEAD_MINUTES] ?: 15,
-            showWeekend = p[Keys.SHOW_WEEKEND] ?: false,
+            showWeekend = p[Keys.SHOW_WEEKEND] ?: true,
             holidaySkipEnabled = p[Keys.HOLIDAY_SKIP] ?: true,
             textScale = TextScale.from(p[Keys.TEXT_SCALE]),
             compactGrid = p[Keys.COMPACT_GRID] ?: false,
             colorTheme = ColorTheme.from(p[Keys.COLOR_THEME]),
             autoBackupEnabled = p[Keys.AUTO_BACKUP] ?: true,
+            homeViewMode = HomeViewMode.from(p[Keys.HOME_VIEW_MODE]),
         )
     }
 
@@ -153,6 +157,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCompactGrid(v: Boolean) = context.settingsStore.edit { it[Keys.COMPACT_GRID] = v }
     suspend fun setColorTheme(v: ColorTheme) = context.settingsStore.edit { it[Keys.COLOR_THEME] = v.name }
     suspend fun setAutoBackupEnabled(v: Boolean) = context.settingsStore.edit { it[Keys.AUTO_BACKUP] = v }
+
+    /** 首页视图模式（今日/本周），跨启动记忆 */
+    suspend fun setHomeViewMode(v: HomeViewMode) = context.settingsStore.edit { it[Keys.HOME_VIEW_MODE] = v.name }
 
     /** 最近一次自动/手动备份的时刻（epoch 毫秒）；从未备份返回 null */
     val lastBackupTime: Flow<Long?> = context.settingsStore.data.map { p -> p[Keys.LAST_BACKUP_TIME] }

@@ -120,6 +120,17 @@ object ImportPlanner {
     }
 
     /**
+     * 「一键平移超界周次」（预览页对全部超界条目的自动修复）：把最大周对齐到学期总周数、
+     * 整体平移并保持区间形状（如 17-20 周、16 周学期 → 13-16 周）。非超界条目原样返回；
+     * 平移后恒非空（最大周必落在 totalWeeks 上），修复即合法。
+     */
+    fun shiftWeeksIntoRange(e: ParsedEntry, totalWeeks: Int): ParsedEntry {
+        if (totalWeeks <= 0 || e.weeks.isEmpty() || e.weeks.any { it <= totalWeeks }) return e
+        val shift = e.weeks.max() - totalWeeks
+        return e.copy(weeks = e.weeks.map { it - shift }.filter { it >= 1 }.toSet())
+    }
+
+    /**
      * 预览阶段的条目间时间冲突检测（只比本次要导入的条目之间，不与库中已有课程比对）：
      * 同天 + 节次区间相交 + 周次集合相交即冲突。返回「条目下标 → 与之冲突的课程描述列表」，
      * 仅供预览页标注（不取消勾选、不拦导入），入库后编辑页仍有完整的冲突检测。

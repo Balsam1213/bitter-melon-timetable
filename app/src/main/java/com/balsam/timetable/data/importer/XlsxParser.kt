@@ -1,7 +1,7 @@
 package com.balsam.timetable.data.importer
 
-import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipInputStream
@@ -33,7 +33,12 @@ object XlsxParser {
                 entry = zis.nextEntry
             }
             val sheet = namedSheet1 ?: firstSheet ?: throw IllegalArgumentException("不是有效的 Excel(.xlsx) 文件")
-            return parseSheet(sheet, shared)
+            // 坏 XML（XmlPullParserException）会带英文技术细节，翻译成用户可读的中文
+            return try {
+                parseSheet(sheet, shared)
+            } catch (e: org.xmlpull.v1.XmlPullParserException) {
+                throw IllegalArgumentException("表格内容损坏，无法读取该 .xlsx 文件；请在 Office / WPS 中重新导出", e)
+            }
         }
     }
 
@@ -50,7 +55,7 @@ object XlsxParser {
 
     private fun parseSharedStrings(data: ByteArray): List<String> {
         val list = mutableListOf<String>()
-        val parser = Xml.newPullParser()
+        val parser = XmlPullParserFactory.newInstance().newPullParser()
         parser.setInput(ByteArrayInputStream(data), null)
         val current = StringBuilder()
         var inT = false
@@ -75,7 +80,7 @@ object XlsxParser {
     private fun parseSheet(data: ByteArray, shared: List<String>): List<List<String>> {
         val rows = mutableListOf<List<String>>()
         var currentRow = mutableListOf<String>()
-        val parser = Xml.newPullParser()
+        val parser = XmlPullParserFactory.newInstance().newPullParser()
         parser.setInput(ByteArrayInputStream(data), null)
         var inV = false
         var inIs = false

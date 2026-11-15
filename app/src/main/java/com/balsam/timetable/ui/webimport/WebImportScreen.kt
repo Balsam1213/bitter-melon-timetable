@@ -56,7 +56,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.balsam.timetable.Graph
-import com.balsam.timetable.data.html.WebImportBus
 import com.balsam.timetable.data.repo.DEFAULT_WEB_IMPORT_URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -83,7 +82,7 @@ private val EXTERNAL_SCHEME_WHITELIST = setOf("tel", "mailto", "sms", "geo")
 @Composable
 fun WebImportScreen(
     onBack: () -> Unit,
-    onParsed: () -> Unit,
+    onParsed: (List<com.balsam.timetable.data.importer.ParsedEntry>) -> Unit,
 ) {
     var url by remember { mutableStateOf(DEFAULT_WEB_IMPORT_URL) }
     var urlLoaded by remember { mutableStateOf(false) }
@@ -110,7 +109,6 @@ fun WebImportScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var clearLoginPrompt by remember { mutableStateOf(false) }
     // 本页解析结果是否已转交预览页；未发布就离开时清掉，防止遗留旧数据被下次误消费
-    var published by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // 从设置读取持久化的教务网地址与安全开关；旧版本可能存进过 file:// 等非法值，读出时重新校验
@@ -137,7 +135,6 @@ fun WebImportScreen(
     DisposableEffect(Unit) {
         onDispose {
             CookieManager.getInstance().flush()
-            if (!published) WebImportBus.pendingEntries = null
         }
     }
 
@@ -167,10 +164,8 @@ fun WebImportScreen(
                     val entries = withContext(Dispatchers.IO) {
                         com.balsam.timetable.data.html.HtmlTimetableParser.parse(html)
                     }
-                    WebImportBus.pendingEntries = entries
-                    published = true
                     busy = false
-                    onParsed()
+                    onParsed(entries)
                 } catch (e: Exception) {
                     busy = false
                     error = com.balsam.timetable.data.importer.friendlyParseError(e)

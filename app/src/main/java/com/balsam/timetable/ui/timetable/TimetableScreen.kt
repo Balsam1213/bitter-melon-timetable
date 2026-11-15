@@ -4,8 +4,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -39,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.balsam.timetable.data.model.HomeViewMode
 import com.balsam.timetable.ui.course.CourseEditSheet
 import com.balsam.timetable.ui.course.CourseEditViewModel
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +130,7 @@ private fun ReadyHome(
 ) {
     val semester = state.semester
     val semesters by vm.semesters.collectAsStateWithLifecycle()
+    val viewMode = state.viewMode
     var menuOpen by remember { mutableStateOf(false) }
     var weekMenuOpen by remember { mutableStateOf(false) }
     var semesterDialog by remember { mutableStateOf(false) }
@@ -133,6 +140,18 @@ private fun ReadyHome(
     val shareScope = rememberCoroutineScope()
     val shareContext = androidx.compose.ui.platform.LocalContext.current
 
+    // 首页状态横幅：回前台刷新（权限可能已变）；同一种类本会话内关闭后不再显示
+    val banner by vm.banner.collectAsStateWithLifecycle()
+    var dismissedBanner by remember { mutableStateOf<TimetableViewModel.BannerKind?>(null) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refreshBanner()
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -140,6 +159,11 @@ private fun ReadyHome(
                     Column {
                         Text(semester.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                         when {
+                            viewMode == HomeViewMode.TODAY && state.todayWeek != null -> Text(
+                                "第${state.todayWeek}周 · 今天",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             state.todayWeek == null -> Text(
                                 "假期 / 未开学",
                                 style = MaterialTheme.typography.bodySmall,
@@ -167,9 +191,11 @@ private fun ReadyHome(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onPrevWeek) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一周")
-                    }
+                    // 今日视图没有周导航概念，只在「本周」视图显示上一周/周次下拉/下一周
+                    if (viewMode == HomeViewMode.WEEK) {
+                        IconButton(onClick = onPrevWeek) {
+                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上一周")
+                        }
                     Box {
                         Text(
                             "第${state.week}周",
@@ -198,24 +224,27 @@ private fun ReadyHome(
                     IconButton(onClick = onNextWeek) {
                         Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下一周")
                     }
+                    }
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "菜单")
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text("分享课表图片") },
-                                onClick = {
-                                    menuOpen = false
-                                    shareScope.launch(Dispatchers.IO) {
-                                        val bmp = TimetableImageExporter.render(
-                                            state.semester, state.slots, state.courses,
-                                            state.week, state.showWeekend, state.today,
-                                        )
-                                        shareFile = TimetableImageExporter.writePng(shareContext, bmp)
-                                    }
-                                },
-                            )
+                            if (viewMode == HomeViewMode.WEEK) {
+                                DropdownMenuItem(
+                                    text = { Text("分享课表图片") },
+                                    onClick = {
+                                        menuOpen = false
+                                        shareScope.launch(Dispatchers.IO) {
+                                            val bmp = TimetableImageExporter.render(
+                                                state.semester, state.slots, state.courses,
+                                                state.week, state.showWeekend, state.today,
+                                            )
+                                            shareFile = TimetableImageExporter.writePng(shareContext, bmp)
+                                        }
+                                    },
+                                )
+                            }
                             DropdownMenuItem(text = { Text("导入课表") }, onClick = { menuOpen = false; onOpenImport() })
                             DropdownMenuItem(
                                 text = { Text("添加课程") },
@@ -245,31 +274,69 @@ private fun ReadyHome(
             )
         },
     ) { padding ->
-        if (state.slots.isEmpty()) {
-            Column(
-                Modifier.fillMaxSize().padding(padding),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text("还没有节次时间")
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = onOpenSlots) { Text("去设置节次时间") }
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            // 首页状态横幅：提醒受限 > 备份失败，最多一条；点卡片去设置
+            banner?.takeIf { it.kind != dismissedBanner }?.let { b ->
+                HomeBannerCard(
+                    text = b.text,
+                    onClick = onOpenSettings,
+                    onDismiss = { dismissedBanner = b.kind },
+                )
             }
-        } else {
-            TimetableGrid(
-                state = state,
-                modifier = Modifier.padding(padding),
-                onPrevWeek = onPrevWeek,
-                onNextWeek = onNextWeek,
-                onOpenCourse = { id ->
-                    sheetPrefill = null
-                    sheetCourseId = id
-                },
-                onAddAt = { prefill ->
-                    sheetPrefill = prefill
-                    sheetCourseId = -1L
-                },
-            )
+            // 今日 / 本周 分段切换（跨启动记忆，默认今日）
+            SingleChoiceSegmentedButtonRow(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                SegmentedButton(
+                    selected = viewMode == HomeViewMode.TODAY,
+                    onClick = { vm.setViewMode(HomeViewMode.TODAY) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    label = { Text("今日") },
+                )
+                SegmentedButton(
+                    selected = viewMode == HomeViewMode.WEEK,
+                    onClick = { vm.setViewMode(HomeViewMode.WEEK) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    label = { Text("本周") },
+                )
+            }
+            if (state.slots.isEmpty()) {
+                Column(
+                    Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text("还没有节次时间")
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = onOpenSlots) { Text("去设置节次时间") }
+                }
+            } else if (viewMode == HomeViewMode.TODAY) {
+                TodayHome(
+                    state = state,
+                    onOpenCourse = { id ->
+                        sheetPrefill = null
+                        sheetCourseId = id
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                TimetableGrid(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                    onPrevWeek = onPrevWeek,
+                    onNextWeek = onNextWeek,
+                    onOpenCourse = { id ->
+                        sheetPrefill = null
+                        sheetCourseId = id
+                    },
+                    onAddAt = { prefill ->
+                        sheetPrefill = prefill
+                        sheetCourseId = -1L
+                    },
+                )
+            }
         }
     }
 
@@ -306,5 +373,31 @@ private fun ReadyHome(
 
     shareFile?.let { file ->
         ShareImageSheet(file = file, onDismiss = { shareFile = null })
+    }
+}
+
+/** 首页状态横幅：长文案在 weight(1f) 列内换行（docs/03 第 7 节） */
+@Composable
+private fun HomeBannerCard(text: String, onClick: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable(onClick = onClick),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+            )
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("知道了", color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+        }
     }
 }

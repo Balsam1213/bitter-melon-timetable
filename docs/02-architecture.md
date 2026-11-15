@@ -26,7 +26,7 @@ app/src/main/java/com/balsam/timetable/
 ├── Graph.kt                  # 全局依赖容器；repository.onDataChanged 统一触发重排提醒+Widgets.updateAll
 ├── data/
 │   ├── db/        Entities / Daos / AppDatabase（Room，Flow + suspend 双份 DAO）
-│   ├── model/     Types(枚举/调色板/AppSettings) / WeekLogic(周次与冲突) / WeeksCodec(周次集合编解码与标签) / HolidayLogic(节假日差集与解析) / SemesterDefaults(学期默认值口径)
+│   ├── model/     Types(枚举/调色板/AppSettings/HomeViewMode) / WeekLogic(周次与冲突) / WeeksCodec(周次集合编解码与标签) / HolidayLogic(节假日差集与解析) / SemesterDefaults(学期默认值口径) / TodayLogic(今日视图三态与倒计时)
 │   ├── repo/      TimetableRepository(课程/学期/节次/导入合并/导出/恢复) / SettingsRepository(设置+节假日存储)
 │   ├── holiday/   HolidaySyncClient（holiday-cn 联网拉取，唯一网络职责，镜像 URL 全 https 常量）
 │   ├── backup/    AutoBackup（每日备份 Worker + MediaStore 读写与滚动清理 + 恢复前快照）/ BackupValidator（备份 JSON 校验）
@@ -35,12 +35,12 @@ app/src/main/java/com/balsam/timetable/
 ├── remind/        ReminderPlanner(排课决策纯函数) / ReminderScheduler(取数+排闹钟) / AlarmReceiver / BootReceiver / Notifier
 ├── ui/
 │   ├── MainActivity(+MainViewModel) / AppNavHost（11 条路由：home / onboarding / course / courses / slots / semesters / settings / holidays / import / webimport / restore；起始路由按「未完成引导且无学期」动态决定）
-│   ├── timetable/ TimetableScreen(骨架) / TimetableGrid+LessonCard(网格) / GridMetrics(字号与行高度量) / SemesterSwitchDialog / ShareImageSheet
+│   ├── timetable/ TimetableScreen(骨架+今日/本周分段切换) / TodayHome(今日视图：状态卡+节次时间轴) / TimetableGrid+LessonCard(网格) / GridMetrics(字号与行高度量) / SemesterSwitchDialog / ShareImageSheet
 │   ├── course/    CourseEditScreen(表单) / CourseEditSheet(弹层+详情) / CourseEditFormParts / CourseListScreen(搜索)
 │   ├── importflow/ webimport/ semester/ slots/ settings/ holidays/ restore/ onboarding/
 │   ├── components/Common.kt（表单小组件）+ WeeksPicker
 │   └── theme/     Theme.kt(四主题×浅深配色) / HolidayBadgeColors.kt（徽章语义色）
-└── widget/        TodayWidget / WeekWidget / Widgets.updateAll(统一刷新入口)
+└── widget/        TodayWidget / WeekWidget / NextClassWidget(下一节课，闹钟定点翻面) / WidgetRefreshScheduler+Receiver(自续链) / WidgetColors(应用主题→Glance 色板) / Widgets.updateAll(统一刷新入口)
 ```
 
 ## 3. 数据模型（Room v4）
@@ -76,7 +76,7 @@ app/src/main/java/com/balsam/timetable/
 - 任何节假日写操作后必须 `reschedule()` + 刷新小组件（`HolidayViewModel.onDataChanged`）
 
 ### 4.4 数据变更联动
-`Graph.repository.onDataChanged = { reschedule(); Widgets.updateAll() }`；课程/学期数据变更、设置变更、节假日变更都走这条链路（今日 + 周视图两个小组件一起刷），防止闹钟/小组件与库内数据脱节。
+`Graph.repository.onDataChanged = { reschedule(); Widgets.updateAll() }`；课程/学期数据变更、设置变更、节假日变更都走这条链路（今日 / 周视图 / 下一节课三个小组件一起刷），防止闹钟/小组件与库内数据脱节。「下一节课」组件另有**定点翻面闹钟**（`WidgetRefreshScheduler`，需求码 1001 独立于提醒的 0..49）：每次数据重建后排「当前课结束 / 下节开课」时刻，触发 → updateAll → 重建数据 → 自动排下一个（自续链）；重启后 BootReceiver 的 updateAll 兜底重排。
 
 ### 4.5 导入管线
 所有来源（xlsx/CSV/JSON/OCR/教务网）解析成统一导入模型（`ParsedEntry`，v1.2 起周次为集合）→ `ImportScreen` 预览（逐条勾选可编辑，周次编辑用 `WeeksPicker`，**无效条目由 `ImportPlanner.validate`（公开纯函数）逐条红字标注并默认不勾选**；**条目间时间冲突由 `ImportPlanner.conflictsAmong` 琥珀色标注——同天 + 节次相交 + 周次相交，仅提示不拦截**）→ **`ImportPlanner` 统一校验（星期/节次/周次）、周次收敛、与已有课程完全重复的条目跳过** → `TimetableRepository` 在 `db.withTransaction` 事务里执行入库，返回 `ImportResult`（新增/跳过重复/无效条目），完成反馈逐项展示。**无学期时导入先弹「先建个学期」确认窗（`pendingNewSemester`，预填可改）再入库，不静默拍开学日期**。新导入方式只需实现「来源 → 导入模型」的解析器。解析异常统一经 `friendlyParseError` 翻译成中文。JSON 备份为 v2 双写格式（weeks 为主 + 旧区间字段推导），旧版本 App 可导入。
@@ -104,8 +104,8 @@ Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、�
 
 ## 5. 测试与静态检查
 
-- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）等（共 151 个）
-- `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）、ImportRepositoryTest（in-memory Room：重复导入跳过/无效过滤/节次补行/clearExisting/**restoreDoc 合并恢复/完整恢复/失败回滚**）、**Compose UI 测试（v1.5.1，依赖 ui-test-junit4 + `Graph.swapForTest` 换内存库）**：RestoreScreenUiTest（恢复预览/合并执行/完整恢复二次确认）、OnboardingScreenUiTest（向导预填/创建/导入方式/就绪页）、ImportPreviewUiTest（无效与冲突标注 + **font_scale 1.5 回归线**）。UI 测试 Screen 需暴露 `vm` 默认参数注入；跑法 `connectedDebugAndroidTest -PdisableSplits`
+- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测与 `shiftWeeksIntoRange` 平移）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）、TodayLogicTest（今日视图三态/倒计时）、NextClassLogicTest（下一节课跨天/调休/翻面）、XlsxParserTest（ZipOutputStream 现场造最小 xlsx）等（共 179 个）
+- `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）、ImportRepositoryTest（in-memory Room：重复导入跳过/无效过滤/节次补行/clearExisting/**restoreDoc 合并恢复/完整恢复/失败回滚**）、**Compose UI 测试（依赖 ui-test-junit4 + `Graph.swapForTest` 换内存库）**：RestoreScreenUiTest（恢复预览/合并执行/完整恢复二次确认）、OnboardingScreenUiTest（向导预填/创建/导入方式/就绪页）、ImportPreviewUiTest（无效与冲突标注、一键平移超界周次、**font_scale 1.5 回归线**）。UI 测试 Screen 需暴露 `vm` 默认参数注入；跑法 `connectedDebugAndroidTest -PdisableSplits`
 - **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / `ReminderPlanner` / `ImportPlanner` / 解析器 / 备份校验 / 小组件数据构建必须先补/改对应单测；数据迁移必须写转换函数单测 + instrumented 迁移测试
 - lint：`:app:lintDebug` 纳入提交自查（错误零容忍）；detekt 因本机仅有 JDK 25/26 而 detekt 1.23.8 CLI 不支持，暂缓（见 TODO）
 - 模拟器冒烟：`timetable_test` AVD（x86_64，装 `app-universal-debug.apk`）；涉及 DB 迁移的版本要实测「装旧版 release → 覆盖升级 → 核对数据」；instrumented 测试遇 ABI 安装冲突加 `-PdisableSplits`

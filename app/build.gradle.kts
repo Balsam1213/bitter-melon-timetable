@@ -27,8 +27,8 @@ android {
         applicationId = "com.balsam.timetable"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.5.1"
+        versionCode = 8
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -121,6 +121,8 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
+    // XlsxParser 的 XmlPullParser 在 JVM 单测里的实现（Android 上走框架自带实现）
+    testImplementation(libs.kxml2)
 
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.ext.junit)

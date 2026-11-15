@@ -6,19 +6,9 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 
 /**
- * 教务网导入的解析结果传递通道（WebImportScreen → ImportScreen 预览页），一次性交接：
- * WebImportScreen 写入并导航，ImportScreen 用 [consume] 读后即清；WebImportScreen
- * 退出时若未发布过也会清空，避免旧数据残留。
- *
- * 约束：仅限上述两个文件使用。新增导入入口一律通过导航参数 / ViewModel 传递，
- * 不得引用这个全局可变变量（后续计划迁移到 SavedStateHandle 或导入状态仓库，见 devlog/TODO.md）。
+ * v1.6 起解析结果经导航 SavedStateHandle（AppNavHost 的 import_handoff）传给导入预览页，
+ * 不再有全局可变通道；新增导入入口一律走同样的导航参数 / ViewModel 传递。
  */
-object WebImportBus {
-    var pendingEntries: List<ParsedEntry>? = null
-
-    /** 读后即清的一次性消费；仅限 ImportScreen 调用 */
-    fun consume(): List<ParsedEntry>? = pendingEntries.also { pendingEntries = null }
-}
 
 /**
  * 教务网页面课表解析，支持两种版式（自动检测）：
@@ -42,8 +32,10 @@ object HtmlTimetableParser {
         if (list.isNotEmpty()) return list
         val grid = parseGridRows(rows)
         if (grid.isNotEmpty()) return grid
+        // 两种版式都不匹配：给出分别对症的提示（学生常见的是打开了错误页面）
         throw IllegalArgumentException(
-            "未能在页面中找到课表数据。请确认已登录并打开「我的选课记录」或「本学期周课表」页面。"
+            "未能在页面中找到课表数据。两种页面都支持：「我的选课记录」列表页（含课程名称列）、「本学期周课表」网格页" +
+                "（含周一~周日表头）。请确认已登录并打开其中之一后重试。"
         )
     }
 

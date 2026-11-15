@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Rule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.room.Room
@@ -112,5 +113,20 @@ class ImportPreviewUiTest {
         compose.onNodeWithText("⊗ 与 大学英语（1-16周） 时间冲突").performScrollTo().assertExists()
         compose.onNodeWithText("⊗ 与 大学物理（1-16周） 时间冲突").performScrollTo().assertExists()
         compose.onNodeWithText("导入所选 3 门课程").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun 一键平移超界周次后红字消失并自动勾选() {
+        setContent()
+        vm.loadExternal(listOf(ParsedEntry(name = "错位课", dayOfWeek = 1, startSlot = 1, endSlot = 2, weeks = (17..20).toSet())))
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("一键平移超出学期总周数的周次").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("一键平移超出学期总周数的周次").performClick()
+        compose.waitUntil(5_000) { !vm.hasOutOfRangeWeeks() }
+        compose.onNodeWithText("一键平移超出学期总周数的周次").assertDoesNotExist()
+        // 平移进学期内（17-20、16 周学期 → 13-16）且自动勾选
+        assertEquals((13..16).toSet(), vm.ui.value.entries[0].weeks)
+        assertEquals(true, vm.ui.value.entries[0].include)
     }
 }

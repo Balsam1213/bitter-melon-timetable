@@ -22,6 +22,8 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 Graph.reminderScheduler.reschedule()
+                // 小组件的翻面闹钟同样会丢；updateAll 重建数据时自动排下一次翻面
+                com.balsam.timetable.widget.Widgets.updateAll(context.applicationContext)
             } finally {
                 pending.finish()
             }

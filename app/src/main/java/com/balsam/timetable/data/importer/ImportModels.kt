@@ -64,7 +64,7 @@ data class ExportDoc(
     }
 }
 
-/** 解析中间态：导入预览页里逐条展示、可编辑、可勾选 */
+/** 解析中间态：导入预览页里逐条展示、可编辑、可勾选；Serializable 供 SavedStateHandle 跨页面传递 */
 data class ParsedEntry(
     val name: String,
     val teacher: String = "",
@@ -74,4 +74,5 @@ data class ParsedEntry(
     val endSlot: Int = 1,
     val weeks: Set<Int> = (1..16).toSet(),
     val include: Boolean = true,
-)
+) : java.io.Serializable
+

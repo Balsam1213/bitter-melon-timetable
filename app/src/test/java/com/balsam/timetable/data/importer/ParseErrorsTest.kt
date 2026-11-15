@@ -48,6 +48,13 @@ class ParseErrorsTest {
     }
 
     @Test
+    fun `坏XML异常映射为中文提示`() {
+        assertEquals(
+            "表格内容损坏或格式不受支持，请在 Office / WPS 中重新导出",
+            friendlyParseError(org.xmlpull.v1.XmlPullParserException("parse error at line 3")),
+        )
+    }
+
     fun `其他异常有消息用消息无消息用类名`() {
         assertEquals("some crash", friendlyParseError(RuntimeException("some crash")))
         assertEquals("RuntimeException", friendlyParseError(RuntimeException()))

@@ -35,6 +35,15 @@ enum class ColorTheme(val label: String) {
     }
 }
 
+/** 首页视图模式：今日视图（时间轴 + 倒计时）默认，可切回完整周课表 */
+enum class HomeViewMode {
+    TODAY, WEEK;
+
+    companion object {
+        fun from(s: String?): HomeViewMode = entries.firstOrNull { it.name == s } ?: TODAY
+    }
+}
+
 val DAY_LABELS = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
 
 object CourseColors {
@@ -64,4 +73,5 @@ data class AppSettings(
     val compactGrid: Boolean = false,
     val colorTheme: ColorTheme = ColorTheme.PURPLE,
     val autoBackupEnabled: Boolean = true,
+    val homeViewMode: HomeViewMode = HomeViewMode.TODAY,
 )

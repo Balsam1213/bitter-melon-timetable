@@ -74,7 +74,10 @@ class TodayWidget : GlanceAppWidget() {
             WidgetData("数据加载失败", "", emptyList(), "数据加载失败，点这里重试")
         }
         val openIntent = Intent(context, MainActivity::class.java)
-        provideContent { Content(data, openIntent) }
+        val theme = Graph.settingsRepository.once().colorTheme
+        provideContent {
+            GlanceTheme(colors = widgetColors(theme)) { Content(data, openIntent) }
+        }
     }
 
     private suspend fun buildTodayData(): WidgetData {

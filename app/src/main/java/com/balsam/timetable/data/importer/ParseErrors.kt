@@ -9,6 +9,8 @@ fun friendlyParseError(e: Throwable): String = when {
     // ZipException 是 IOException 的子类，SerializationException 是 IllegalArgumentException
     // 的子类，必须先判子类
     e is java.util.zip.ZipException -> "文件损坏或不是有效的 .xlsx 文件，请重新导出后再试"
+    // 坏 XML（XlsxParser 内部已翻译大部分；这里是穿透兜底）
+    e is org.xmlpull.v1.XmlPullParserException -> "表格内容损坏或格式不受支持，请在 Office / WPS 中重新导出"
     e is kotlinx.serialization.SerializationException -> "不是有效的备份 JSON 文件，请确认文件来自本应用的导出"
     e is IllegalStateException || e is IllegalArgumentException ->
         e.message ?: "无法解析该内容，请检查文件格式"

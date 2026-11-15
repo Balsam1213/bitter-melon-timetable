@@ -111,6 +111,12 @@ private val themes = mapOf(
     ColorTheme.PINK to Pink,
 )
 
+/** Glance 小组件取应用主题的浅/深配色（widget 包用，避免色值在两处重复维护） */
+internal fun glanceColorSchemesOf(theme: ColorTheme): Pair<ColorScheme, ColorScheme> {
+    val t = themes[theme] ?: Purple
+    return t.light to t.dark
+}
+
 /** 设置页主题选项的色点预览（固定用浅色 primary，不随当前深浅色变） */
 fun primarySwatchOf(theme: ColorTheme): Color =
     themes[theme]?.lightPrimary ?: Purple.lightPrimary
