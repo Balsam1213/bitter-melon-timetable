@@ -68,6 +68,24 @@ jobs:
       - name: Assemble release（正式签名 + ABI 拆分）
         run: ./gradlew :app:assembleRelease --stacktrace
 
+      - name: Verify APK signature matches keystore（防静默回退 debug 签名）
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          KS_CERT=$(keytool -list -v -keystore "$GITHUB_WORKSPACE/keystore.jks" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null \
+            | grep -m1 "SHA256:" | tr -d ' ')
+          APK_CERT=$("${ANDROID_HOME}/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" \
+            verify --print-certs app/build/outputs/apk/release/app-arm64-v8a-release.apk 2>/dev/null \
+            | grep -m1 "SHA-256" | awk -F': ' '{print $2}' | tr -d ' ')
+          echo "keystore: $KS_CERT"
+          echo "apk:      $APK_CERT"
+          if [ -z "$APK_CERT" ] || [ "$KS_CERT" != "$APK_CERT" ]; then
+            echo "::error::APK 签名与 keystore 不一致，中止发版"
+            exit 1
+          fi
+
       - name: Build release notes（CHANGELOG 段落 + 固定安装/升级说明）
         env:
           TAG: ${{ github.ref_name }}
