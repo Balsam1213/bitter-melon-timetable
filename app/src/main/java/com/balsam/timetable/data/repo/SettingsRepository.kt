@@ -29,7 +29,11 @@ private val Context.settingsStore by preferencesDataStore(name = "settings")
 
 const val DEFAULT_WEB_IMPORT_URL = "https://yhxt.swjtu.edu.cn/"
 
-/** 2026 年法定节假日（国办发明电〔2025〕7号），ISO 日期；另含 2027 元旦当天 */
+/**
+ * 2026-2027 两年法定节假日预置，ISO 日期。
+ * 2026：国办发明电〔2025〕7号；2027：国务院办公厅 2026-11 发布（与 holiday-cn 2026/2027.json 核对一致，
+ * 2027 出处 gov.cn/zhengce/zhengceku/202611/content_7085102.htm）。
+ */
 val DEFAULT_HOLIDAYS: Set<String> = buildSet {
     val ranges = listOf(
         "2026-01-01" to "2026-01-03", // 元旦
@@ -39,7 +43,13 @@ val DEFAULT_HOLIDAYS: Set<String> = buildSet {
         "2026-06-19" to "2026-06-21", // 端午
         "2026-09-25" to "2026-09-27", // 中秋
         "2026-10-01" to "2026-10-07", // 国庆
-        "2027-01-01" to "2027-01-01", // 2027 元旦（当天必休）
+        "2027-01-01" to "2027-01-03", // 元旦
+        "2027-02-05" to "2027-02-13", // 春节（9 天，1/31 与 2/14 两个周日调休上班）
+        "2027-04-03" to "2027-04-05", // 清明
+        "2027-05-01" to "2027-05-05", // 劳动节（5/8 周六调休上班）
+        "2027-06-09" to "2027-06-09", // 端午（单日，不调休）
+        "2027-09-15" to "2027-09-15", // 中秋（单日，不调休）
+        "2027-10-01" to "2027-10-07", // 国庆（9/26 与 10/9 调休上班）
     )
     for ((startStr, endStr) in ranges) {
         var d = java.time.LocalDate.parse(startStr)
@@ -51,7 +61,7 @@ val DEFAULT_HOLIDAYS: Set<String> = buildSet {
     }
 }
 
-/** 2026 年调休上班日（国办发明电〔2025〕7号，与 holiday-cn 2026.json 核对一致） */
+/** 2026-2027 两年调休上班日（来源同上，与 holiday-cn 2026/2027.json 核对一致） */
 val DEFAULT_MAKEUP_DAYS: Set<String> = setOf(
     "2026-01-04", // 周日 · 元旦调休
     "2026-02-14", // 周六 · 春节调休
@@ -59,6 +69,11 @@ val DEFAULT_MAKEUP_DAYS: Set<String> = setOf(
     "2026-05-09", // 周六 · 劳动节调休
     "2026-09-20", // 周日 · 国庆中秋调休
     "2026-10-10", // 周六 · 国庆中秋调休
+    "2027-01-31", // 周日 · 春节调休
+    "2027-02-14", // 周日 · 春节调休
+    "2027-05-08", // 周六 · 劳动节调休
+    "2027-09-26", // 周日 · 国庆调休
+    "2027-10-09", // 周六 · 国庆调休
 )
 
 class SettingsRepository(private val context: Context) {
