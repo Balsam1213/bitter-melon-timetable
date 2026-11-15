@@ -73,15 +73,20 @@ jobs:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          KS_CERT=$(keytool -list -v -keystore "$GITHUB_WORKSPACE/keystore.jks" \
-            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null \
-            | grep -m1 "SHA256:" | tr -d ' ')
-          APK_CERT=$("${ANDROID_HOME}/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" \
+          # 两侧指纹统一归一化为无冒号大写 hex 再比对
+          APK_RAW=$("${ANDROID_HOME}/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" \
             verify --print-certs app/build/outputs/apk/release/app-arm64-v8a-release.apk 2>/dev/null \
-            | grep -m1 "SHA-256" | awk -F': ' '{print $2}' | tr -d ' ')
+            | grep -m1 "SHA-256 digest")
+          echo "apksigner raw: $APK_RAW"
+          APK_CERT=$(echo "$APK_RAW" | sed 's/.*digest: *//' | tr -d '[:space:]' | tr 'a-f' 'A-F')
+          KS_RAW=$(keytool -list -v -keystore "$GITHUB_WORKSPACE/keystore.jks" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null \
+            | grep -m1 "SHA256:")
+          echo "keytool raw: $KS_RAW"
+          KS_CERT=$(echo "$KS_RAW" | sed 's/.*SHA256: *//' | tr -d ' :' | tr 'a-f' 'A-F')
           echo "keystore: $KS_CERT"
           echo "apk:      $APK_CERT"
-          if [ -z "$APK_CERT" ] || [ "$KS_CERT" != "$APK_CERT" ]; then
+          if [ -z "$APK_CERT" ] || [ -z "$KS_CERT" ] || [ "$KS_CERT" != "$APK_CERT" ]; then
             echo "::error::APK 签名与 keystore 不一致，中止发版"
             exit 1
           fi
