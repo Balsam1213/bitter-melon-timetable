@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
@@ -78,68 +79,107 @@ class NextClassWidget : GlanceAppWidget() {
 
     @Composable
     private fun Content(data: NextClassData, openIntent: Intent) {
+        val compact = LocalSize.current.height.value < 120f
+        if (compact) {
+            CompactContent(data, openIntent)
+        } else {
+            LargeContent(data, openIntent)
+        }
+    }
+
+    /** 大尺寸（≥2 格高）：课程名与倒计时为主视觉，弹性空间放在中段 */
+    @Composable
+    private fun LargeContent(data: NextClassData, openIntent: Intent) {
         Column(
             GlanceModifier
                 .fillMaxSize()
-                .padding(14.dp)
+                .padding(16.dp)
                 .background(GlanceTheme.colors.surface)
                 .cornerRadius(20.dp)
                 .clickable(onClick = actionStartActivity(openIntent)),
         ) {
-            // 小标签：上课中 / 下一节 / 今天放假…，主题色强调
             Text(
                 data.header,
                 style = TextStyle(
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = GlanceTheme.colors.primary,
                 ),
                 maxLines = 1,
             )
-            Spacer(GlanceModifier.height(4.dp))
+            Spacer(GlanceModifier.height(6.dp))
             Text(
                 data.courseName,
                 style = TextStyle(
-                    fontSize = 20.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = GlanceTheme.colors.onSurface,
                 ),
                 maxLines = 2,
             )
             if (data.location.isNotBlank()) {
-                Spacer(GlanceModifier.height(3.dp))
+                Spacer(GlanceModifier.height(4.dp))
                 Text(
                     data.location,
-                    style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    style = TextStyle(fontSize = 16.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    maxLines = 1,
+                )
+            }
+            if (data.relativeLabel.isNotBlank()) {
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    data.relativeLabel,
+                    style = TextStyle(
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GlanceTheme.colors.primary,
+                    ),
                     maxLines = 1,
                 )
             }
             if (data.timeLabel.isNotBlank()) {
+                Spacer(GlanceModifier.height(3.dp))
+                Text(
+                    data.timeLabel,
+                    style = TextStyle(fontSize = 14.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+
+    /** 紧凑尺寸（约 1 格高）：只保留课程名与开课时间，字号比完整版小一档 */
+    @Composable
+    private fun CompactContent(data: NextClassData, openIntent: Intent) {
+        Column(
+            GlanceModifier
+                .fillMaxSize()
+                .padding(10.dp)
+                .background(GlanceTheme.colors.surface)
+                .cornerRadius(16.dp)
+                .clickable(onClick = actionStartActivity(openIntent)),
+        ) {
+            Text(
+                data.header,
+                style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.primary),
+                maxLines = 1,
+            )
+            Text(
+                data.courseName,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = GlanceTheme.colors.onSurface,
+                ),
+                maxLines = 1,
+            )
+            if (data.timeLabel.isNotBlank()) {
                 Spacer(GlanceModifier.defaultWeight())
-                Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        data.timeLabel,
-                        style = TextStyle(
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GlanceTheme.colors.onSurface,
-                        ),
-                        maxLines = 1,
-                        modifier = GlanceModifier.defaultWeight(),
-                    )
-                    if (data.relativeLabel.isNotBlank()) {
-                        Spacer(GlanceModifier.width(8.dp))
-                        Text(
-                            data.relativeLabel,
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = GlanceTheme.colors.primary,
-                            ),
-                            maxLines = 1,
-                        )
-                    }
-                }
+                Text(
+                    data.timeLabel,
+                    style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    maxLines = 1,
+                )
             }
         }
     }
