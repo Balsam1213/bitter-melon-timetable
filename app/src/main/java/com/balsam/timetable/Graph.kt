@@ -41,6 +41,18 @@ object Graph {
         }
     }
 
+    /**
+     * 仅供 instrumented 测试：把数据库换成内存库（UI 测试基座，模式照抄 ImportRepositoryTest）。
+     * 必须在创建 ViewModel 之前调用（依赖在构造时从 Graph 快照）；
+     * 新 repository 的 onDataChanged 为 null，测试中不会重排闹钟或刷新小组件。
+     * appContext / settingsRepository / reminderScheduler 沿用真实 Application 初始化的实例。
+     */
+    @androidx.annotation.VisibleForTesting
+    fun swapForTest(db: AppDatabase) {
+        database = db
+        repository = TimetableRepository(db)
+    }
+
     /** 在合适时机（页面回到前台等）刷新提醒与小组件 */
     fun refreshRemindersAndWidget() {
         appScope.launch {

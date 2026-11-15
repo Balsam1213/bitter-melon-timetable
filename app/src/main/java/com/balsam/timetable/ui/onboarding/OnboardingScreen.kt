@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -62,8 +63,8 @@ fun OnboardingScreen(
     onOpenWebImport: () -> Unit,
     onOpenRestore: () -> Unit,
     onOpenCourseEdit: () -> Unit,
+    vm: OnboardingViewModel = viewModel(),
 ) {
-    val vm: OnboardingViewModel = viewModel()
     val state by vm.ui.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -162,7 +163,7 @@ private fun SemesterStep(vm: OnboardingViewModel, state: OnboardingViewModel.UiS
     Button(
         onClick = { vm.createSemester() },
         enabled = !state.busy,
-        modifier = Modifier.fillMaxWidth().height(48.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
     ) { Text(if (state.busy) "创建中…" else "创建学期，下一步") }
     TextButton(onClick = { vm.finish(onFinished) }, modifier = Modifier.fillMaxWidth()) {
         Text("跳过，先看看课表")
@@ -241,7 +242,7 @@ private fun ImportStep(
         onClick = onOpenCourseEdit,
     )
     Spacer(Modifier.height(8.dp))
-    Button(onClick = onReady, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+    Button(onClick = onReady, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
         Text("完成导入，进入课表")
     }
     TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
@@ -292,7 +293,7 @@ private fun ReadyStep(
         }
     }
     Spacer(Modifier.height(8.dp))
-    Button(onClick = onFinish, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+    Button(onClick = onFinish, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
         Text("完成，进入课表")
     }
 }
@@ -308,7 +309,8 @@ private fun SourceCard(
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             icon()
             Spacer(Modifier.padding(start = 12.dp))
-            Column {
+            // weight(1f)：描述文案较长，大字体下不约束宽度会单行溢出卡片
+            Column(Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.SemiBold)
                 Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

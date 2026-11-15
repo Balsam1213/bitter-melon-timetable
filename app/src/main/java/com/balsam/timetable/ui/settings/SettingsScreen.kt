@@ -252,24 +252,29 @@ fun SettingsScreen(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { vm.backupNow() }) { Text("立即备份") }
-                    Spacer(Modifier.weight(1f))
-                    when (val b = backupUi) {
-                        is SettingsViewModel.BackupUiState.Never -> Text(
-                            "尚未备份过",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        is SettingsViewModel.BackupUiState.Done -> Text(
-                            "上次备份：${com.balsam.timetable.data.backup.AutoBackup.describeTime(b.timeMillis)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        is SettingsViewModel.BackupUiState.Failed -> Text(
-                            "上次备份失败（${com.balsam.timetable.data.backup.AutoBackup.describeTime(b.timeMillis)}），" +
-                                "请检查存储空间；也可改用「导出当前学期为 JSON」",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                    // weight(1f)：失败文案长，大字体下不约束宽度会被单行裁切
+                    Column(
+                        Modifier.weight(1f),
+                        horizontalAlignment = Alignment.End,
+                    ) {
+                        when (val b = backupUi) {
+                            is SettingsViewModel.BackupUiState.Never -> Text(
+                                "尚未备份过",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            is SettingsViewModel.BackupUiState.Done -> Text(
+                                "上次备份：${com.balsam.timetable.data.backup.AutoBackup.describeTime(b.timeMillis)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            is SettingsViewModel.BackupUiState.Failed -> Text(
+                                "上次备份失败（${com.balsam.timetable.data.backup.AutoBackup.describeTime(b.timeMillis)}），" +
+                                    "请检查存储空间；也可改用「导出当前学期为 JSON」",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
                     }
                 }
                 Text(

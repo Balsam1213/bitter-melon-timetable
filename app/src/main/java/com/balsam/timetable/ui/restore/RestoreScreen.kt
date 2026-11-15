@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -53,8 +54,10 @@ import java.time.format.DateTimeFormatter
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RestoreScreen(onBack: () -> Unit) {
-    val vm: RestoreViewModel = viewModel()
+fun RestoreScreen(
+    onBack: () -> Unit,
+    vm: RestoreViewModel = viewModel(),
+) {
     val state by vm.ui.collectAsStateWithLifecycle()
     val pickFile = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -248,7 +251,10 @@ private fun RestorePreview(
                     var expanded by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { expanded = true }) {
-                            Text((target?.name ?: "请选择") + if (target?.isCurrent == true) "（当前）" else "")
+                            Text(
+                                (target?.name ?: "请选择") + if (target?.isCurrent == true) "（当前）" else "",
+                                maxLines = 1, // 长学期名在大字体下截断优于压缩变形
+                            )
                         }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                             state.semesters.forEach { sem ->
@@ -280,7 +286,8 @@ private fun RestorePreview(
     Button(
         onClick = { if (state.mode == RestoreViewModel.Mode.FULL && !noSemester) showConfirm = true else onConfirm() },
         enabled = !state.busy && (state.targetId != null || noSemester),
-        modifier = Modifier.fillMaxWidth().height(48.dp),
+        // heightIn 而非固定 height：大字体下按钮文案折两行不被裁切
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
     ) {
         Text(
             when {
@@ -329,7 +336,8 @@ private fun ModeRow(selected: Boolean, title: String, desc: String, onClick: () 
         verticalAlignment = Alignment.Top,
     ) {
         RadioButton(selected = selected, onClick = onClick)
-        Column(Modifier.padding(top = 10.dp)) {
+        // weight(1f)：说明文案很长，不按剩余宽度约束测量的话大字体下会单行溢出卡片
+        Column(Modifier.weight(1f).padding(top = 10.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
             Text(
                 desc,

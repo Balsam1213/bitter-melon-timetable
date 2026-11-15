@@ -53,11 +53,12 @@ class RestoreViewModel : ViewModel() {
                 compareByDescending<Semester> { it.isCurrent }.thenByDescending { it.startDate },
             )
             val current = semesters.firstOrNull { it.isCurrent } ?: semesters.firstOrNull()
-            _ui.value = UiState(
+            // copy 而非整包替换：init 的异步扫描若晚于 select/pickFile 完成，不能把已选中的备份冲掉
+            _ui.value = _ui.value.copy(
                 loading = false,
                 backups = metas,
                 semesters = semesters,
-                targetId = current?.id,
+                targetId = _ui.value.targetId ?: current?.id,
             )
         }
     }

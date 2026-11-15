@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -68,8 +69,8 @@ fun ImportScreen(
     onBack: () -> Unit,
     onManualAdd: () -> Unit,
     onOpenWebImport: () -> Unit = {},
+    vm: ImportViewModel = viewModel(),
 ) {
-    val vm: ImportViewModel = viewModel()
     val state by vm.ui.collectAsStateWithLifecycle()
     LaunchedEffect(freshSemester) { vm.freshSemester = freshSemester }
 
@@ -265,7 +266,8 @@ fun ImportScreen(
                 Button(
                     onClick = { vm.confirmImport() },
                     enabled = selected > 0 && !state.busy,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    // heightIn 而非固定 height：大字体下按钮文案折两行不被裁切
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 ) {
                     Text("导入所选 $selected 门课程")
                 }
@@ -314,8 +316,9 @@ private fun NewSemesterDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("先建个学期") },
+        // 内容加滚动：AlertDialog 高度有上限，大字体下整块表单会被裁掉底部
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     "还没有学期，课程需要归属到某个学期。开学日期决定「今天是第几周」，请核对：",
                     style = MaterialTheme.typography.bodySmall,
@@ -394,7 +397,8 @@ private fun SourceCard(
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             icon()
             Spacer(Modifier.padding(start = 12.dp))
-            Column {
+            // weight(1f)：描述文案较长，大字体下不约束宽度会单行溢出卡片
+            Column(Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.SemiBold)
                 Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

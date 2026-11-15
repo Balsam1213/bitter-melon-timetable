@@ -64,3 +64,18 @@
 - **周视图（v1.3）**：头部「第N周」；一天一列，列头单字（一/二/…/日），今天列 primaryContainer 高亮；
   列内课名（10sp 两行）+ 地点（9sp），放不下收「+N」；放假日列显灰色「休」；列数跟随「显示周末」
 - 任何小组件相关改动都要在模拟器真实添加到桌面验证（添加路径：长按桌面 → Widgets → 苦瓜课表）
+
+## 7. 大字体验证（font_scale 1.5，v1.5.1 起）
+
+> 10-26 的教训：国产 ROM 用户开大字体的比例不低，默认字体永远看不出问题。
+
+- **涉及设置页 / 表单 / 卡片行 / 弹窗的 UI 改动，发版前必须在 `font_scale 1.5` 下过一遍**：
+  `adb shell settings put system font_scale 1.5` → 走查 → 复位 1.0
+- **写法约定**（10-26 复现的根因是 Compose `Row` 非加权子项按无界宽度测量、单行溢出）：
+  - 「长文案 + 行内控件」一律 `Column(Modifier.weight(1f))` 包文案（参见 SettingsScreen 自动备份行），
+    多颗并排选择用 FlowRow（字号 / 主题 chips 先例）
+  - **AlertDialog 内容可能超高**的（表单类）给内容 Column 加 `verticalScroll`（先例：EntryEditDialog / NewSemesterDialog）
+  - **主操作按钮用 `heightIn(min = 48.dp)` 而非固定 `height(48.dp)`**——大字体下两行文案不被裁切
+  - 行内长值（学期名等）按钮文本 `maxLines = 1`，截断优于压缩变形
+- `Compose UI 测试`（`ui/importflow/ImportPreviewUiTest`）含 font_scale 1.5 的自动化回归线；
+  纯视觉问题仍需模拟器人工走查
