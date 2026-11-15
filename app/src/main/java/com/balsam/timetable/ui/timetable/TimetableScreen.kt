@@ -27,10 +27,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -191,6 +189,13 @@ private fun ReadyHome(
                     }
                 },
                 actions = {
+                    // 视图切换：紧凑按钮放顶栏，显示另一个视图的名字（不单独占行）
+                    TextButton(onClick = { vm.setViewMode(otherViewMode(viewMode)) }) {
+                        Text(
+                            if (viewMode == HomeViewMode.TODAY) "本周" else "今日",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                    }
                     // 今日视图没有周导航概念，只在「本周」视图显示上一周/周次下拉/下一周
                     if (viewMode == HomeViewMode.WEEK) {
                         IconButton(onClick = onPrevWeek) {
@@ -283,25 +288,6 @@ private fun ReadyHome(
                     onDismiss = { dismissedBanner = b.kind },
                 )
             }
-            // 今日 / 本周 分段切换（跨启动记忆，默认今日）
-            SingleChoiceSegmentedButtonRow(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                SegmentedButton(
-                    selected = viewMode == HomeViewMode.TODAY,
-                    onClick = { vm.setViewMode(HomeViewMode.TODAY) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    label = { Text("今日") },
-                )
-                SegmentedButton(
-                    selected = viewMode == HomeViewMode.WEEK,
-                    onClick = { vm.setViewMode(HomeViewMode.WEEK) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    label = { Text("本周") },
-                )
-            }
             if (state.slots.isEmpty()) {
                 Column(
                     Modifier.fillMaxSize(),
@@ -375,6 +361,10 @@ private fun ReadyHome(
         ShareImageSheet(file = file, onDismiss = { shareFile = null })
     }
 }
+
+/** 顶栏视图切换按钮显示的「另一个视图」 */
+private fun otherViewMode(mode: HomeViewMode): HomeViewMode =
+    if (mode == HomeViewMode.TODAY) HomeViewMode.WEEK else HomeViewMode.TODAY
 
 /** 首页状态横幅：长文案在 weight(1f) 列内换行（docs/03 第 7 节） */
 @Composable

@@ -26,6 +26,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -80,45 +81,26 @@ class NextClassWidget : GlanceAppWidget() {
         Column(
             GlanceModifier
                 .fillMaxSize()
-                .padding(11.dp)
+                .padding(14.dp)
                 .background(GlanceTheme.colors.surface)
                 .cornerRadius(20.dp)
                 .clickable(onClick = actionStartActivity(openIntent)),
         ) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // 头部胶囊：上课中（primaryContainer）/ 下一节 / 其他状态
-                Box(
-                    GlanceModifier
-                        .background(
-                            if (data.state == NextClassState.RUNNING) {
-                                GlanceTheme.colors.primaryContainer
-                            } else {
-                                GlanceTheme.colors.secondaryContainer
-                            },
-                        )
-                        .cornerRadius(50.dp)
-                        .padding(horizontal = 10.dp, vertical = 3.dp),
-                ) {
-                    Text(
-                        data.header,
-                        style = TextStyle(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (data.state == NextClassState.RUNNING) {
-                                GlanceTheme.colors.onPrimaryContainer
-                            } else {
-                                GlanceTheme.colors.onSecondaryContainer
-                            },
-                        ),
-                        maxLines = 1,
-                    )
-                }
-            }
-            Spacer(GlanceModifier.height(7.dp))
+            // 小标签：上课中 / 下一节 / 今天放假…，主题色强调
+            Text(
+                data.header,
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = GlanceTheme.colors.primary,
+                ),
+                maxLines = 1,
+            )
+            Spacer(GlanceModifier.height(4.dp))
             Text(
                 data.courseName,
                 style = TextStyle(
-                    fontSize = 15.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = GlanceTheme.colors.onSurface,
                 ),
@@ -128,7 +110,7 @@ class NextClassWidget : GlanceAppWidget() {
                 Spacer(GlanceModifier.height(3.dp))
                 Text(
                     data.location,
-                    style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant),
+                    style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant),
                     maxLines = 1,
                 )
             }
@@ -137,18 +119,27 @@ class NextClassWidget : GlanceAppWidget() {
                 Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         data.timeLabel,
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = GlanceTheme.colors.onSurface),
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GlanceTheme.colors.onSurface,
+                        ),
                         maxLines = 1,
                         modifier = GlanceModifier.defaultWeight(),
                     )
+                    if (data.relativeLabel.isNotBlank()) {
+                        Spacer(GlanceModifier.width(8.dp))
+                        Text(
+                            data.relativeLabel,
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = GlanceTheme.colors.primary,
+                            ),
+                            maxLines = 1,
+                        )
+                    }
                 }
-            }
-            if (data.relativeLabel.isNotBlank()) {
-                Text(
-                    data.relativeLabel,
-                    style = TextStyle(fontSize = 11.sp, color = GlanceTheme.colors.onSurfaceVariant),
-                    maxLines = 1,
-                )
             }
         }
     }
