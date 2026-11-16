@@ -23,10 +23,10 @@
 
 <table align="center">
   <tr>
+    <td align="center"><img src="assets/screenshot-today.png" width="200" alt="今日视图" /><br /><sub><b>今日视图</b>（上课中高亮 + 倒计时）</sub></td>
     <td align="center"><img src="assets/screenshot-week-light.png" width="200" alt="周课表视图" /><br /><sub><b>周课表</b>（自动计算周次）</sub></td>
-    <td align="center"><img src="assets/screenshot-week-dark.png" width="200" alt="深色模式" /><br /><sub><b>深色模式</b>（跟随系统）</sub></td>
     <td align="center"><img src="assets/screenshot-course-editor.png" width="200" alt="课程编辑" /><br /><sub><b>课程编辑</b>（任意周次集合）</sub></td>
-    <td align="center"><img src="assets/screenshot-settings.png" width="200" alt="设置" /><br /><sub><b>设置</b>（提醒 / 节假日 / 主题）</sub></td>
+    <td align="center"><img src="assets/screenshot-settings.png" width="200" alt="设置" /><br /><sub><b>设置</b>（提醒 / 节假日 / 主题 / 备份恢复）</sub></td>
   </tr>
 </table>
 

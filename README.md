@@ -23,10 +23,10 @@
 
 <table align="center">
   <tr>
+    <td align="center"><img src="assets/screenshot-today.png" width="200" alt="Today view" /><br /><sub><b>Today view</b> (in-progress highlight + countdown)</sub></td>
     <td align="center"><img src="assets/screenshot-week-light.png" width="200" alt="Weekly timetable" /><br /><sub><b>Weekly grid</b> (auto week number)</sub></td>
-    <td align="center"><img src="assets/screenshot-week-dark.png" width="200" alt="Dark mode" /><br /><sub><b>Dark mode</b> (follows system)</sub></td>
     <td align="center"><img src="assets/screenshot-course-editor.png" width="200" alt="Course editor" /><br /><sub><b>Course editor</b> (arbitrary week sets)</sub></td>
-    <td align="center"><img src="assets/screenshot-settings.png" width="200" alt="Settings" /><br /><sub><b>Settings</b> (reminders / holidays / themes)</sub></td>
+    <td align="center"><img src="assets/screenshot-settings.png" width="200" alt="Settings" /><br /><sub><b>Settings</b> (reminders / holidays / themes / backup)</sub></td>
   </tr>
 </table>
 
