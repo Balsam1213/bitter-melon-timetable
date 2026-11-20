@@ -12,7 +12,8 @@ object HolidaySyncClient {
 
     /**
      * 数据源镜像，全部 https 常量（有单测守门：[HolidaySyncClientTest]）。
-     * 这是教务网 WebView 之外应用唯一的网络访问点，不允许新增明文 http 数据源。
+     * 教务网 WebView 之外的网络访问点之一（另一个是 data/update/UpdateChecker 检查更新），
+     * 数据源必须 https 常量，不允许新增明文 http 数据源。
      */
     val MIRROR_URL_TEMPLATE = listOf(
         "https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/{year}.json",

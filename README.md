@@ -7,7 +7,7 @@
 
   **A local-first Android timetable · No account · Class reminders · Home-screen widgets**
 
-  Import your timetable once, then view and edit courses and get notified before class. No sign-up, no tracking — your schedule lives on your own device; the only network use is the academic-affairs import and holiday sync, both on demand.
+  Import your timetable once, then view and edit courses and get notified before class. No sign-up, no tracking — your schedule lives on your own device; the only network use is the academic-affairs import and holiday sync, both on demand (the optional "auto-check for updates" stays off by default and, once enabled, performs at most one anonymous check per day).
 
   [![Release](https://img.shields.io/github/v/release/Balsam1213/bitter-melon-timetable)](https://github.com/Balsam1213/bitter-melon-timetable/releases/latest)
   [![CI](https://github.com/Balsam1213/bitter-melon-timetable/actions/workflows/ci.yml/badge.svg)](https://github.com/Balsam1213/bitter-melon-timetable/actions/workflows/ci.yml)
@@ -76,6 +76,8 @@ Grab the APK for your device architecture from the [**latest release**](https://
 
 - **Display & personalization** — three text-size levels (stacked with the system font scale); a compact mode that squeezes row height without shrinking text; four preset app themes (violet / indigo / pine green / rose pink) applied instantly; dark mode that follows the system.
 
+- **Check for updates (v1.7)** — check for a new version manually any time under Settings → About; the "auto-check" toggle is **off by default** and, once enabled, performs at most one anonymous GitHub Releases check per day at startup, showing an in-app dialog when a new version is found (download the APK / view release notes / ignore this version). Downloads open in the system browser with a per-ABI direct link — no in-app APK downloader.
+
 ## 🚀 Quick start
 
 1. On first launch a three-step wizard runs: **create a semester** (name / start date / total weeks prefilled from today's date, all editable) → **choose an import method** → **enter the timetable and turn on reminders**; every step can be skipped and adjusted later in Settings.
@@ -86,7 +88,7 @@ Grab the APK for your device architecture from the [**latest release**](https://
 
 ## 🔒 Network & privacy
 
-There is no account system; all timetable data lives in the on-device database (`timetable.db`). The only requested permission, `INTERNET`, is used exclusively by the last two features below:
+There is no account system; all timetable data lives in the on-device database (`timetable.db`). The only requested permission, `INTERNET`, is used exclusively by the last three features below:
 
 | Feature | Network behavior |
 |---|---|
@@ -95,6 +97,7 @@ There is no account system; all timetable data lives in the on-device database (
 | Backup & export (JSON / timetable image / daily auto-backup) | Local only |
 | Academic affairs import | User-initiated: an in-app WebView opens the school site. Plaintext http URLs trigger a risk warning first (credentials could be intercepted), certificate errors are confirmed per site, and navigating off-site asks for confirmation. The fetched page is parsed locally; timetable data is never uploaded |
 | Holiday sync | Fetches public holiday-cn data over https (3 CDN mirrors); on failure it silently falls back to the built-in State Council presets; manual edits are never overwritten |
+| Update check | **Off by default.** Once "auto-check" is enabled, startup performs at most one anonymous GET of the GitHub Releases API per day (anonymous request, sends no data, no device identifiers); the manual "check for updates" button is equally anonymous and only runs when you tap it. APK downloads go through the system browser via direct GitHub Releases links |
 
 ## 🔨 Build from source
 

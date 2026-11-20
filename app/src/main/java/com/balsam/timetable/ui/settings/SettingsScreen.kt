@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.balsam.timetable.data.model.ColorTheme
 import com.balsam.timetable.data.model.TextScale
+import com.balsam.timetable.ui.components.UpdateFoundDialog
 import com.balsam.timetable.ui.theme.primarySwatchOf
 import kotlinx.coroutines.launch
 
@@ -291,6 +292,51 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                val updateCheck by vm.updateCheck.collectAsStateWithLifecycle()
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("自动检查更新", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "默认关闭。开启后启动时每天最多联网检查一次新版本" +
+                                "（匿名请求 GitHub Releases，不发送任何数据）。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = settings?.updateAutoCheck ?: false,
+                        onCheckedChange = { vm.setUpdateAutoCheck(it) },
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = { vm.checkForUpdate() },
+                        enabled = updateCheck != SettingsViewModel.UpdateCheckState.Checking,
+                    ) {
+                        Text(if (updateCheck == SettingsViewModel.UpdateCheckState.Checking) "正在检查…" else "检查更新")
+                    }
+                    when (updateCheck) {
+                        SettingsViewModel.UpdateCheckState.UpToDate -> Text(
+                            "已是最新版本",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        SettingsViewModel.UpdateCheckState.Failed -> Text(
+                            "检查失败，请稍后再试",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        else -> {}
+                    }
+                }
+                (updateCheck as? SettingsViewModel.UpdateCheckState.Found)?.let { foundState ->
+                    UpdateFoundDialog(
+                        found = foundState.found,
+                        onIgnore = { vm.ignoreUpdate() },
+                        onDismiss = { vm.dismissUpdateDialog() },
+                    )
+                }
             }
             Spacer(Modifier.height(24.dp))
         }

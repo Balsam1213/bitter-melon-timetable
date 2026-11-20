@@ -74,4 +74,6 @@ data class AppSettings(
     val colorTheme: ColorTheme = ColorTheme.PURPLE,
     val autoBackupEnabled: Boolean = true,
     val homeViewMode: HomeViewMode = HomeViewMode.TODAY,
+    /** 自动检查更新；默认关（联网由你主动触发，开启后才有每日一次匿名检查） */
+    val updateAutoCheck: Boolean = false,
 )

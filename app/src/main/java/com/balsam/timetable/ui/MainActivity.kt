@@ -18,13 +18,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.balsam.timetable.BuildConfig
 import com.balsam.timetable.Graph
 import com.balsam.timetable.data.model.AppSettings
 import com.balsam.timetable.data.model.ColorTheme
+import com.balsam.timetable.data.update.UpdateChecker
+import com.balsam.timetable.data.update.UpdateFound
+import com.balsam.timetable.ui.components.UpdateFoundDialog
 import com.balsam.timetable.ui.theme.TimetableTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -38,6 +47,15 @@ class MainActivity : ComponentActivity() {
             TimetableTheme(colorTheme = settings?.colorTheme ?: ColorTheme.PURPLE) {
                 RequestNotificationPermission()
                 AppNavHost()
+                // 启动自动检查更新（默认关，开启后每天限一次）：发现新版且未忽略才弹
+                val startupUpdate by vm.startupUpdate.collectAsStateWithLifecycle()
+                startupUpdate?.let { found ->
+                    UpdateFoundDialog(
+                        found = found,
+                        onIgnore = { vm.ignoreStartupUpdate() },
+                        onDismiss = { vm.dismissStartupUpdate() },
+                    )
+                }
             }
         }
     }
@@ -52,6 +70,38 @@ class MainActivity : ComponentActivity() {
 class MainViewModel : ViewModel() {
     val settings: StateFlow<AppSettings?> = Graph.settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** 启动自动检查更新；发现新版且未忽略时非空，弹窗在 MainActivity 渲染 */
+    private val _startupUpdate = MutableStateFlow<UpdateFound?>(null)
+    val startupUpdate: StateFlow<UpdateFound?> = _startupUpdate.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val repo = Graph.settingsRepository
+            val st = repo.once()
+            val today = java.time.LocalDate.now().toEpochDay()
+            // 自动检查默认关；开启后每天限一次匿名检查（成败都记，弱网不反复打 API）
+            if (!UpdateChecker.shouldAutoCheck(st.updateAutoCheck, repo.updateLastCheckDay(), today)) return@launch
+            repo.markUpdateChecked(today)
+            val found = withContext(Dispatchers.IO) {
+                UpdateChecker.fetchLatest(Build.SUPPORTED_ABIS.toList())
+            } ?: return@launch
+            if (!UpdateChecker.isUpdateAvailable(BuildConfig.VERSION_NAME, found.tagName)) return@launch
+            if (found.tagName == repo.updateIgnored()) return@launch
+            _startupUpdate.value = found
+        }
+    }
+
+    fun dismissStartupUpdate() {
+        _startupUpdate.value = null
+    }
+
+    /** 忽略此版本：记录 tag（此后自动检查不再弹该版），手动检查不受影响 */
+    fun ignoreStartupUpdate() {
+        val found = _startupUpdate.value ?: return
+        _startupUpdate.value = null
+        viewModelScope.launch { Graph.settingsRepository.setUpdateIgnored(found.tagName) }
+    }
 }
 
 /** Android 13+ 首次启动请求通知权限（拒绝过就不再骚扰，可在设置页引导） */

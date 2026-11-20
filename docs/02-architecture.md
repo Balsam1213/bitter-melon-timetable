@@ -28,9 +28,10 @@ app/src/main/java/com/balsam/timetable/
 │   ├── db/        Entities / Daos / AppDatabase（Room，Flow + suspend 双份 DAO）
 │   ├── model/     Types(枚举/调色板/AppSettings/HomeViewMode) / WeekLogic(周次与冲突) / WeeksCodec(周次集合编解码与标签) / HolidayLogic(节假日差集与解析) / SemesterDefaults(学期默认值口径) / TodayLogic(今日视图三态与倒计时)
 │   ├── repo/      TimetableRepository(课程/学期/节次/导入合并/导出/恢复) / SettingsRepository(设置+节假日存储)
-│   ├── holiday/   HolidaySyncClient（holiday-cn 联网拉取，唯一网络职责，镜像 URL 全 https 常量）
+│   ├── holiday/   HolidaySyncClient（holiday-cn 联网拉取，镜像 URL 全 https 常量）
+│   ├── update/    UpdateChecker（GitHub Releases 检查更新：版本比较/解析/ABI 选包纯函数 + 匿名 GET，URL 全 https 常量）
 │   ├── backup/    AutoBackup（每日备份 Worker + MediaStore 读写与滚动清理 + 恢复前快照）/ BackupValidator（备份 JSON 校验）
-│   ├── html/      HtmlTimetableParser（教务网选课页 → 导入模型）+ WebImportBus（一次性交接通道，仅限 WebImportScreen↔ImportScreen）
+│   ├── html/      HtmlTimetableParser（教务网选课页 → 导入模型）
 │   └── importer/  XlsxParser / TextParsers(CSV,JSON) / OcrParser / ImportPlanner(校验/去重/冲突/入库计划) / ImportModels
 ├── remind/        ReminderPlanner(排课决策纯函数) / ReminderScheduler(取数+排闹钟) / AlarmReceiver / BootReceiver / Notifier
 ├── ui/
@@ -83,7 +84,7 @@ app/src/main/java/com/balsam/timetable/
 
 **首启向导（`ui/onboarding/`，v1.5）**：`AppNavHost` 起始路由按「`onboarding_done` 未落 **且** 无任何学期」进向导（自愈：已有学期/标记直接进 HOME）。三步——创建学期（`SemesterDefaults` 统一预填口径：名称按月份推学年学期、开学日=本周一、20 周）→ 选导入方式（复用 ImportScreen/教务网/恢复页，从导入返回时课程数 > 0 自动进就绪页）→ 就绪页（提醒开关引导）。完成或跳过落 `onboarding_done`。学期默认值原为 `ImportViewModel`/`SemesterScreen` 各一份私有实现，已收敛到 `SemesterDefaults`。
 
-**教务网导入的网络边界**：平台层保留明文许可（http 校园站兼容是既定需求，networkSecurityConfig 无法白名单用户动态输入的域名），风险控制在 WebView 交互层——scheme 只放行 http/https、明文加载前确认（含服务端重定向兜底）、同注册域外跳转确认、证书异常按 host 会话级记忆确认；`allowFileAccess`/`allowContentAccess` 关闭；**混合内容（https 页面加载 http 子资源）默认禁止、第三方 Cookie 默认关闭**，确有需要的校园系统在教务网导入页「⋮」菜单打开（持久化到 DataStore `web_import_allow_mixed_content` / `web_import_third_party_cookies`，默认 false）；非网页 scheme 白名单只放行 `tel:`/`mailto:`/`sms:`/`geo:`，其余（尤其 `intent:`，可拉起任意组件）一律不交给系统；「清除教务网登录状态」菜单项清 Cookie + 站点存储 + 缓存。**安全取舍记录**：`usesCleartextTraffic="true"` 是应用级配置，作用域大于教务网页面本身——接受它是因为WebView 层已有上述多层确认兜底，而其他网络组件必须且只使用 https（节假日同步 `HolidaySyncClient` 是教务网之外唯一的网络调用点，3 个镜像 URL 为 https 常量并有单测守门）。`WebImportBus` 是 WebImportScreen→ImportScreen 的一次性交接通道（`consume()` 读后即清、未发布退出即清），**仅限这两个文件使用，新增导入入口一律走导航参数 / ViewModel，不得引用该全局变量**；后续计划迁移到 SavedStateHandle 或导入状态仓库（见 devlog/TODO.md）。
+**教务网导入的网络边界**：平台层保留明文许可（http 校园站兼容是既定需求，networkSecurityConfig 无法白名单用户动态输入的域名），风险控制在 WebView 交互层——scheme 只放行 http/https、明文加载前确认（含服务端重定向兜底）、同注册域外跳转确认、证书异常按 host 会话级记忆确认；`allowFileAccess`/`allowContentAccess` 关闭；**混合内容（https 页面加载 http 子资源）默认禁止、第三方 Cookie 默认关闭**，确有需要的校园系统在教务网导入页「⋮」菜单打开（持久化到 DataStore `web_import_allow_mixed_content` / `web_import_third_party_cookies`，默认 false）；非网页 scheme 白名单只放行 `tel:`/`mailto:`/`sms:`/`geo:`，其余（尤其 `intent:`，可拉起任意组件）一律不交给系统；「清除教务网登录状态」菜单项清 Cookie + 站点存储 + 缓存。**安全取舍记录**：`usesCleartextTraffic="true"` 是应用级配置，作用域大于教务网页面本身——接受它是因为WebView 层已有上述多层确认兜底，而其他网络组件必须且只使用 https（教务网之外的网络调用点是节假日同步 `HolidaySyncClient` 与检查更新 `UpdateChecker` 两个，数据源 URL 均为 https 常量并有单测守门）。教务网解析结果自 v1.6 起经导航 SavedStateHandle 一次性传递（替代原 `WebImportBus` 全局变量，后者已删除），**新增导入入口一律走导航参数 / ViewModel，不得引入全局可变交接**。
 
 ### 4.6 课表分享图片（`TimetableImageExporter`）
 Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、文字色按底色亮度自适应，**文字上对齐**）；经 FileProvider（`cache/share/`）走系统分享，MediaStore 保存相册（API 29+）。入口在课表页 ⋮ 菜单，弹层 `skipPartiallyExpanded` 打开即全展开。**排版与配色固定**，不随字号/紧凑/主题设置变化。
@@ -104,7 +105,7 @@ Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、�
 
 ## 5. 测试与静态检查
 
-- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测与 `shiftWeeksIntoRange` 平移）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）、TodayLogicTest（今日视图三态/倒计时）、NextClassLogicTest（下一节课跨天/调休/翻面）、XlsxParserTest（ZipOutputStream 现场造最小 xlsx）等（共 179 个）
+- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测与 `shiftWeeksIntoRange` 平移）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）、TodayLogicTest（今日视图三态/倒计时）、NextClassLogicTest（下一节课跨天/调休/翻面）、XlsxParserTest（ZipOutputStream 现场造最小 xlsx）、UpdateCheckerTest（版本比较/解析/ABI 选包/每日节流 + https 守门）、HomeBannerTest（首页横幅优先级）等（共 197 个）
 - `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）、ImportRepositoryTest（in-memory Room：重复导入跳过/无效过滤/节次补行/clearExisting/**restoreDoc 合并恢复/完整恢复/失败回滚**）、**Compose UI 测试（依赖 ui-test-junit4 + `Graph.swapForTest` 换内存库）**：RestoreScreenUiTest（恢复预览/合并执行/完整恢复二次确认）、OnboardingScreenUiTest（向导预填/创建/导入方式/就绪页）、ImportPreviewUiTest（无效与冲突标注、一键平移超界周次、**font_scale 1.5 回归线**）。UI 测试 Screen 需暴露 `vm` 默认参数注入；跑法 `connectedDebugAndroidTest -PdisableSplits`
 - **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / `ReminderPlanner` / `ImportPlanner` / 解析器 / 备份校验 / 小组件数据构建必须先补/改对应单测；数据迁移必须写转换函数单测 + instrumented 迁移测试
 - lint：`:app:lintDebug` 纳入提交自查（错误零容忍）；detekt 因本机仅有 JDK 25/26 而 detekt 1.23.8 CLI 不支持，暂缓（见 TODO）

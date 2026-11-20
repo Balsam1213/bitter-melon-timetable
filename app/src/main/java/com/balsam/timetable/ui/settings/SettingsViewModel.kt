@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.balsam.timetable.BuildConfig
 import com.balsam.timetable.Graph
 import com.balsam.timetable.data.model.AppSettings
 import com.balsam.timetable.data.model.ColorTheme
@@ -15,9 +16,13 @@ import com.balsam.timetable.data.model.HolidayCalendar
 import com.balsam.timetable.data.model.TextScale
 import com.balsam.timetable.data.repo.DEFAULT_HOLIDAYS
 import com.balsam.timetable.data.repo.DEFAULT_MAKEUP_DAYS
+import com.balsam.timetable.data.update.UpdateChecker
+import com.balsam.timetable.data.update.UpdateFound
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -141,5 +146,51 @@ class SettingsViewModel : ViewModel() {
         } catch (e: Exception) {
             "导出失败：${e.message}"
         }
+    }
+
+    // ---------------- 检查更新 ----------------
+
+    /** 手动检查更新的状态；与启动检查共用 UpdateFoundDialog */
+    sealed interface UpdateCheckState {
+        data object Idle : UpdateCheckState
+        data object Checking : UpdateCheckState
+        data object UpToDate : UpdateCheckState
+        data class Found(val found: UpdateFound) : UpdateCheckState
+        data object Failed : UpdateCheckState
+    }
+
+    private val _updateCheck = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
+    val updateCheck: StateFlow<UpdateCheckState> = _updateCheck.asStateFlow()
+
+    fun setUpdateAutoCheck(v: Boolean) = viewModelScope.launch {
+        settingsRepo.setUpdateAutoCheck(v)
+    }
+
+    /** 手动检查：不受「忽略此版本」影响，失败给出温和提示（启动自动检查才是静默） */
+    fun checkForUpdate() {
+        if (_updateCheck.value == UpdateCheckState.Checking) return
+        _updateCheck.value = UpdateCheckState.Checking
+        viewModelScope.launch {
+            val found = withContext(Dispatchers.IO) {
+                UpdateChecker.fetchLatest(Build.SUPPORTED_ABIS.toList())
+            }
+            _updateCheck.value = when {
+                found == null -> UpdateCheckState.Failed
+                !UpdateChecker.isUpdateAvailable(BuildConfig.VERSION_NAME, found.tagName) ->
+                    UpdateCheckState.UpToDate
+                else -> UpdateCheckState.Found(found)
+            }
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _updateCheck.value = UpdateCheckState.Idle
+    }
+
+    /** 忽略此版本：记录 tag（此后自动检查不再弹该版），手动检查不受影响 */
+    fun ignoreUpdate() {
+        val found = (_updateCheck.value as? UpdateCheckState.Found)?.found ?: return
+        _updateCheck.value = UpdateCheckState.Idle
+        viewModelScope.launch { settingsRepo.setUpdateIgnored(found.tagName) }
     }
 }

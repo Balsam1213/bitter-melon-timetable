@@ -110,6 +110,12 @@ class SettingsRepository(private val context: Context) {
         val MAKEUP_REMOVED = stringSetPreferencesKey("makeup_removed")
         /** 元素格式 "yyyy-MM-dd=4"（按周四上课）；仅由用户设置，同步永不触碰 */
         val MAKEUP_DOW = stringSetPreferencesKey("makeup_weekdays")
+        /** 自动检查更新；默认关——隐私承诺「联网由你主动触发」，开启后才有启动时每日一次匿名检查 */
+        val UPDATE_AUTO_CHECK = booleanPreferencesKey("update_auto_check")
+        /** 最近一次自动检查更新的 epoch-day；每日限一次节流，同 HOLIDAY_SYNC_DAY 模式 */
+        val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check")
+        /** 「忽略此版本」的 tag（如 v1.7.0）；只抑制自动检查弹窗，手动检查不受影响 */
+        val UPDATE_IGNORED = stringPreferencesKey("update_ignored")
     }
 
     val webImportUrl: Flow<String> = context.settingsStore.data.map { p ->
@@ -145,6 +151,7 @@ class SettingsRepository(private val context: Context) {
             colorTheme = ColorTheme.from(p[Keys.COLOR_THEME]),
             autoBackupEnabled = p[Keys.AUTO_BACKUP] ?: true,
             homeViewMode = HomeViewMode.from(p[Keys.HOME_VIEW_MODE]),
+            updateAutoCheck = p[Keys.UPDATE_AUTO_CHECK] ?: false,
         )
     }
 
@@ -295,4 +302,24 @@ class SettingsRepository(private val context: Context) {
         context.settingsStore.data.first()[Keys.ONBOARDING_DONE] ?: false
 
     suspend fun setOnboardingDone() = context.settingsStore.edit { it[Keys.ONBOARDING_DONE] = true }
+
+    // ---------------- 检查更新 ----------------
+
+    suspend fun setUpdateAutoCheck(v: Boolean) =
+        context.settingsStore.edit { it[Keys.UPDATE_AUTO_CHECK] = v }
+
+    /** 最近一次自动检查更新的 epoch-day；null = 从未检查过 */
+    suspend fun updateLastCheckDay(): Long? =
+        context.settingsStore.data.first()[Keys.UPDATE_LAST_CHECK]
+
+    /** 无论检查成败都记录，避免弱网时每次启动都打一次 GitHub API */
+    suspend fun markUpdateChecked(day: Long) =
+        context.settingsStore.edit { it[Keys.UPDATE_LAST_CHECK] = day }
+
+    /** 「忽略此版本」的 tag；空串 = 没有忽略 */
+    suspend fun updateIgnored(): String =
+        context.settingsStore.data.first()[Keys.UPDATE_IGNORED] ?: ""
+
+    suspend fun setUpdateIgnored(tag: String) =
+        context.settingsStore.edit { it[Keys.UPDATE_IGNORED] = tag }
 }

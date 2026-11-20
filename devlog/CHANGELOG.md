@@ -1,5 +1,16 @@
 # 更新日志
 
+## v1.7.0（2026-11-21）
+
+**检查更新 + 首页「从未备份」温和提示**
+
+- **检查更新（设置 → 关于）**：手动「检查更新」按钮随时可查，数据源 GitHub Releases API（匿名 GET，取 tag_name / body / assets）；新增 `data/update/UpdateChecker`（仿 HolidaySyncClient 的 HttpURLConnection 模式：6s 超时、失败返 null 静默），纯函数 `compareVersions`（语义比较）/ `parseReleaseJson` / `downloadUrlFor`（按 ABI 选包）+ 12 个单测 + https 守门
+- **自动检查默认关 + 手动开启**：隐私承诺维持「联网由你主动触发」——开启后启动时每天限一次匿名检查（DataStore epoch-day 节流，同节假日同步模式），发现新版弹应用内对话框（下载安装包 / 查看更新说明 / 忽略此版本）；「忽略此版本」记录 tag 只抑制自动弹窗，手动检查不受影响；fetch 失败静默，绝不影响启动
+- **下载按设备 ABI 直链**：`releases/latest/download/app-<abi>-release.apk`（该 ABI 未发布如 x86 时回退 universal），交给系统浏览器打开，不内置 APK 下载
+- **首页横幅扩展**：新增「本学期的课程还没备份过」温和提示（从未备份且当前学期有课程才显示），优先级 提醒受限 > 备份失败 > 从未备份，仍最多一条、可关闭、点击跳设置；判定抽纯函数 `pickHomeBanner` + 6 个单测
+- README 双语隐私表补条件性说明（开启后才有每日匿名 GET，不发送任何数据）；用户手册补检查更新用法
+- 单测 179 → 197；`versionName` 1.7.0 / `versionCode` 11
+
 ## v1.6.2（2026-11-16）
 
 **「下一节课」小组件大尺寸排版重做**

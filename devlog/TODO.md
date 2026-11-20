@@ -49,17 +49,20 @@
 - [x] **导入预览一键平移超界周次**（shiftWeeksIntoRange 纯函数 + 单测 + androidTest 用例）
 - [x] 课表页顶栏日期展示优化（今日视图顶栏显示日期与周次）
 
-## v1.7（候选，未排期）
+## v1.7（2026-11-21 已完成）
 
-- [ ] **检查更新（方案已定稿，直接按要点实现）**：设置 → 关于加「检查更新」按钮；数据源 `https://api.github.com/repos/Balsam1213/bitter-melon-timetable/releases/latest`（匿名 GET，取 tag_name / body / assets）。
+- [x] **检查更新（方案已定稿，直接按要点实现）**：设置 → 关于加「检查更新」按钮；数据源 `https://api.github.com/repos/Balsam1213/bitter-melon-timetable/releases/latest`（匿名 GET，取 tag_name / body / assets）。
   - **自动检查默认关 + 手动开启**（已确认）：开启后启动时每天限一次匿名检查（DataStore 节流），发现新版弹应用内对话框（下载安装包 / 查看更新说明 / 忽略此版本）；隐私承诺维持「联网由你主动触发」，README 隐私表补一句条件性说明（开启后才有每日匿名 GET，不发送任何数据）
   - 下载按设备 ABI 选 `releases/latest/download/app-<abi>-release.apk` 直链（fallback universal），不内置 APK 下载
   - 实现拆分：`data/update/UpdateChecker.kt`（compareVersions 语义比较 / parseReleaseJson / downloadUrlFor / fetchLatest，仿 HolidaySyncClient 的 HttpURLConnection 模式）+ 纯函数单测；SettingsRepository 加 UPDATE_AUTO_CHECK / UPDATE_LAST_CHECK / UPDATE_IGNORED 三 key；启动弹窗挂 MainViewModel
   - 手动检查不受「忽略此版本」影响；fetch 失败静默（不影响启动）
+- [x] 首页横幅扩展：备份从未做过但有课程的温和提示等
+
+## 后续候选（未排期）
+
 - [ ] **扫码迁移（跨设备二维码传课表）**：v1.5 评估后暂缓——单张二维码上限约 2.9KB，一学期课表 gzip 后经常超限需分片；需新增相机权限、预览界面与条码识别依赖。优先级低，先用「JSON 文件 + 从文件选择恢复」
 - [ ] detekt 接入：CI 是 JDK 21（可跑 detekt 1.23.8），但该版本官方兼容表只到 Gradle 8.x / Kotlin 2.0.21，对本仓 Gradle 9.7 / Kotlin 2.4 有解析风险；待 detekt 2.0 线（面向新栈）稳定后在 CI spike 验证后接入
 - [ ] OCR 解析失败细化到逐格子（部分格子无法识别时给出格子级反馈；工作量大收益低，暂缓）
-- [ ] 首页横幅扩展：备份从未做过但有课程的温和提示等
 
 ## 竞争力候选（P2，非必做）
 

@@ -15,6 +15,7 @@ import com.balsam.timetable.data.model.TodayLogic
 import com.balsam.timetable.data.model.WeekLogic
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -96,9 +98,9 @@ class TimetableViewModel : ViewModel() {
     val semesters: StateFlow<List<Semester>> =
         repo.semesters().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    // ---------------- 首页状态横幅（提醒受限 > 备份失败，最多显示一条） ----------------
+    // ---------------- 首页状态横幅（提醒受限 > 备份失败 > 从未备份，最多显示一条） ----------------
 
-    enum class BannerKind { REMINDER, BACKUP }
+    enum class BannerKind { REMINDER, BACKUP, BACKUP_NEVER }
 
     data class HomeBanner(val kind: BannerKind, val text: String)
 
@@ -109,17 +111,25 @@ class TimetableViewModel : ViewModel() {
         bannerRefresh.value++
     }
 
+    /** 当前学期是否有课程（无学期视为没有）；「从未备份」横幅只在有课程时提示 */
+    private val hasCurrentSemesterCourses: Flow<Boolean> = repo.currentSemester()
+        .flatMapLatest { sem ->
+            if (sem == null) flowOf(false)
+            else repo.coursesWithLessons(sem.id).map { it.isNotEmpty() }
+        }
+
     val banner: StateFlow<HomeBanner?> =
-        combine(settingsRepo.settings, settingsRepo.lastBackupTime, settingsRepo.lastBackupOk, bannerRefresh) { st, _, lastOk, _ ->
-            when {
-                // 用户主动关闭提醒不算异常，不提示
-                st.reminderEnabled && (!hasNotificationPermission() || !canScheduleExactAlarms()) ->
-                    HomeBanner(BannerKind.REMINDER, "课前提醒可能不响：通知或精确闹钟权限未就绪，点此去开启")
-
-                lastOk == false ->
-                    HomeBanner(BannerKind.BACKUP, "上次自动备份失败，点此查看备份状态")
-
-                else -> null
+        combine(settingsRepo.settings, settingsRepo.lastBackupOk, hasCurrentSemesterCourses, bannerRefresh) { st, lastOk, hasCourses, _ ->
+            when (pickHomeBanner(
+                reminderEnabled = st.reminderEnabled,
+                reminderBlocked = !hasNotificationPermission() || !canScheduleExactAlarms(),
+                lastBackupOk = lastOk,
+                hasCurrentSemesterCourses = hasCourses,
+            )) {
+                BannerKind.REMINDER -> HomeBanner(BannerKind.REMINDER, "课前提醒可能不响：通知或精确闹钟权限未就绪，点此去开启")
+                BannerKind.BACKUP -> HomeBanner(BannerKind.BACKUP, "上次自动备份失败，点此查看备份状态")
+                BannerKind.BACKUP_NEVER -> HomeBanner(BannerKind.BACKUP_NEVER, "本学期的课程还没备份过，点此去设置开启自动备份")
+                null -> null
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -150,4 +160,21 @@ class TimetableViewModel : ViewModel() {
     fun setViewMode(mode: HomeViewMode) {
         viewModelScope.launch { settingsRepo.setHomeViewMode(mode) }
     }
+}
+
+/**
+ * 首页横幅决策（纯函数，单测守门）：提醒受限 > 备份失败 > 从未备份，最多一条。
+ * 用户主动关闭提醒不算异常（reminderEnabled=false 时不提示）；「从未备份」只在有课程时温和提示，
+ * 且备份过一次（成功或失败都算「有过备份记录」）就交给失败横幅接管。
+ */
+fun pickHomeBanner(
+    reminderEnabled: Boolean,
+    reminderBlocked: Boolean,
+    lastBackupOk: Boolean?,
+    hasCurrentSemesterCourses: Boolean,
+): TimetableViewModel.BannerKind? = when {
+    reminderEnabled && reminderBlocked -> TimetableViewModel.BannerKind.REMINDER
+    lastBackupOk == false -> TimetableViewModel.BannerKind.BACKUP
+    lastBackupOk == null && hasCurrentSemesterCourses -> TimetableViewModel.BannerKind.BACKUP_NEVER
+    else -> null
 }
