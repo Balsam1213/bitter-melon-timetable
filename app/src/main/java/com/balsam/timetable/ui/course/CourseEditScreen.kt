@@ -94,6 +94,7 @@ fun CourseEditScreen(courseId: Long, onBack: () -> Unit) {
 
 /** 课程编辑表单：全屏路由页与底部弹层共用 */
 @Composable
+@Suppress("LongMethod")
 internal fun CourseForm(
     state: CourseEditViewModel.UiState,
     vm: CourseEditViewModel,

@@ -12,7 +12,7 @@ object WeeksCodec {
             ?.mapNotNull { it.trim().toIntOrNull() }
             ?.filter { it > 0 }
             ?.toSortedSet()
-            ?: emptySet()
+            .orEmpty()
 
     /** {11,1,2} → "1,2,11"；空集 → "" */
     fun format(weeks: Set<Int>): String = weeks.filter { it > 0 }.sorted().joinToString(",")

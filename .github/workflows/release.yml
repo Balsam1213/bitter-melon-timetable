@@ -62,6 +62,9 @@ jobs:
       - name: Lint
         run: ./gradlew :app:lintDebug --stacktrace
 
+      - name: Detekt
+        run: ./gradlew :app:detektMain --stacktrace
+
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 

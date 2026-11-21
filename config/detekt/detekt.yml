@@ -1,0 +1,66 @@
+# 本仓 detekt 覆盖（buildUponDefaultConfig 叠加；v1.7.1 接入）。
+# 背景：detekt 1.23.8 对 Kotlin 2.4 元数据硬性不可用（官方兼容表止步 Kotlin 2.0.21），故走 2.0.0-alpha.6 线。
+# 关闭/放宽的均为与 Android/Compose 惯例或本仓架构的约定冲突，理由见各条注释；调整前先跑 :app:detektMain 看实际影响。
+config:
+  validation: true
+  warningsAsErrors: false
+
+potential-bugs:
+  # （2.0 起该规则从 style 移入 potential-bugs）面向用户的日期/数字格式化统一走系统默认 Locale（中文受众）
+  ImplicitDefaultLocale:
+    active: false
+  # 2.0.0-alpha.6 对 require / try-catch 赋值后的语句存在误报（BackupValidator 全路径有单测覆盖仍被标记）；
+  # 待 2.0 正式版复核后恢复
+  UnreachableCode:
+    active: false
+
+complexity:
+  CyclomaticComplexMethod:
+    # Glance 小组件构建器与课表/解析代码分支天然较多；24 仍能拦住真正失控的函数
+    allowedComplexity: 24
+  LongMethod:
+    # 同上；60 行对 Compose 构建器过紧
+    allowedLines: 120
+  LongParameterList:
+    # @Composable 展示函数多参数是惯例
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 8
+  NestedBlockDepth:
+    # 周次/网格/解析的深层嵌套（默认 4）
+    allowedDepth: 5
+  TooManyFunctions:
+    # AutoBackup/Widgets 等聚合 object（默认 11）
+    allowedFunctionsPerFile: 14
+    allowedFunctionsPerClass: 14
+  ComplexCondition:
+    # WebView 安全校验的多条件与表达式
+    allowedConditions: 4
+
+coroutines:
+  InjectDispatcher:
+    # 本仓 DI 为手写 Graph（无 Hilt），直接使用 Dispatchers.IO/Default 是既定架构
+    active: false
+
+exceptions:
+  TooGenericExceptionCaught:
+    # 导入/同步/恢复/更新链路统一 catch Exception 映射中文报错，是既定错误处理风格
+    active: false
+
+naming:
+  FunctionNaming:
+    # @Composable 帕斯卡命名是 Compose 官方惯例，与默认驼峰正则冲突
+    active: false
+  MatchingDeclarationName:
+    # 小型关联类型共置一文件是本仓惯例（Types.kt / ImportModels.kt / UpdateChecker.kt 等）
+    active: false
+
+style:
+  MagicNumber:
+    # Compose/Widget UI 内联 dp/sp/时间常量是本仓惯例，抽常量只加噪音
+    active: false
+  MaxLineLength:
+    # 默认 120 对中文文案/SQL/正则串行宽过紧（现存最长 153），160 拦截真正的失控行
+    maxLineLength: 160
+  ReturnCount:
+    # 解析器/数据构建函数的提前返回（空守卫、兜底分支）是好代码，放宽到 4
+    max: 4

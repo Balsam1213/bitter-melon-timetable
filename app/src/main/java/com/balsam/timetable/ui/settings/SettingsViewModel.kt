@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.ui.settings
 
 import android.app.AlarmManager
@@ -184,6 +186,11 @@ class SettingsViewModel : ViewModel() {
     }
 
     fun dismissUpdateDialog() {
+        _updateCheck.value = UpdateCheckState.Idle
+    }
+
+    /** 离开设置页时重置手动检查结果（已是最新/失败文案只在本次进页有意义） */
+    fun resetUpdateCheck() {
         _updateCheck.value = UpdateCheckState.Idle
     }
 

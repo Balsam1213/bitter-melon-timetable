@@ -256,7 +256,7 @@ class ImportPlannerTest {
         assertEquals(3, map.size)
         assertEquals(
             setOf("大学英语（1-16周）", "大学物理（1-16周）"),
-            map[0]!!.toSet(),
+            map.getValue(0).toSet(),
         )
     }
 

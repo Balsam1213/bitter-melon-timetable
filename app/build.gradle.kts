@@ -5,6 +5,16 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.detekt)
+}
+
+// detekt 静态分析门禁（v1.7.1 接入，CI 与 lint 同级）：默认规则 + 本仓覆盖（config/detekt/detekt.yml）；
+// Error 级即构建失败（failOnSeverity 显式写出便于排查）
+detekt {
+    buildUponDefaultConfig.set(true)
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    failOnSeverity.set(dev.detekt.gradle.extensions.FailOnSeverity.Error)
+    parallel.set(true)
 }
 
 // 正式签名从根目录 keystore.properties 读取（gitignore，见 docs/04）；
@@ -27,8 +37,8 @@ android {
         applicationId = "com.balsam.timetable"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.7.0"
+        versionCode = 12
+        versionName = "1.7.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

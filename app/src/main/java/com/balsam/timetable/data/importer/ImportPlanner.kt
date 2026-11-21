@@ -59,6 +59,8 @@ object ImportPlanner {
         val invalid: List<InvalidEntry>,
     )
 
+    // 条目分流循环的多出口 continue 是预览标注的自然写法
+    @Suppress("LoopWithTooManyJumpStatements")
     fun plan(
         entries: List<ParsedEntry>,
         existing: List<ExistingCourse>,
@@ -110,6 +112,7 @@ object ImportPlanner {
     }
 
     /** 返回 null 表示合法（预览页也用它逐条标注问题）。周次全超界判无效，不再像旧逻辑那样原样保留（永不发生的死课） */
+    @Suppress("ReturnCount")
     fun validate(e: ParsedEntry, totalWeeks: Int): String? {
         if (e.name.isBlank()) return REASON_NO_NAME
         if (e.dayOfWeek !in 1..7) return REASON_BAD_DAY
@@ -135,6 +138,7 @@ object ImportPlanner {
      * 同天 + 节次区间相交 + 周次集合相交即冲突。返回「条目下标 → 与之冲突的课程描述列表」，
      * 仅供预览页标注（不取消勾选、不拦导入），入库后编辑页仍有完整的冲突检测。
      */
+    @Suppress("LoopWithTooManyJumpStatements")
     fun conflictsAmong(entries: List<ParsedEntry>, totalWeeks: Int): Map<Int, List<String>> {
         val result = mutableMapOf<Int, MutableList<String>>()
         val valid = entries.withIndex().filter { (_, e) -> validate(e, totalWeeks) == null && e.include }

@@ -105,4 +105,28 @@ class OnboardingScreenUiTest {
         // 空库：未建学期，就绪页走「已跳过创建学期」分支
         compose.onNodeWithText("已跳过创建学期，进入课表后可随时在「学期管理」新建。").assertExists()
     }
+
+    @Test
+    fun 就绪页正确显示课程数() {
+        // 回归：v1.5-v1.7.0 就绪页把整个 UiState 对象插进了文案（"$state.courseCount" 少了花括号）
+        val id = runBlocking {
+            Graph.repository.createSemester("测试学期", "2026-09-07", totalWeeks = 16, setCurrent = true)
+        }
+        runBlocking {
+            Graph.repository.importEntries(
+                id,
+                listOf(
+                    com.balsam.timetable.data.importer.ParsedEntry(name = "高等数学", dayOfWeek = 1),
+                    com.balsam.timetable.data.importer.ParsedEntry(name = "大学英语", dayOfWeek = 2),
+                ),
+                clearExisting = false,
+            )
+        }
+        setContent()
+        vm.goToReady()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("一切就绪！").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("已导入 2 门课程，本周课表已生成").assertExists()
+    }
 }

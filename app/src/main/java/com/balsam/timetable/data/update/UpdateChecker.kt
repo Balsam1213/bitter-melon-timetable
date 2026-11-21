@@ -26,6 +26,9 @@ object UpdateChecker {
     const val RELEASES_API_URL =
         "https://api.github.com/repos/Balsam1213/bitter-melon-timetable/releases/latest"
 
+    /** Releases 网页（release 资产异常、选不出安装包直链时的兜底跳转目标） */
+    const val RELEASES_PAGE_URL = "https://github.com/Balsam1213/bitter-melon-timetable/releases/latest"
+
     /**
      * 语义比较版本号：去掉 v/V 前缀与 `-` 后缀，按 `.` 分段数值比较，缺段按 0（1.6 == 1.6.0）。
      * a < b 返回负数，相等返回 0，a > b 返回正数；无法解析的段按 0 处理。
@@ -53,14 +56,14 @@ object UpdateChecker {
     fun parseReleaseJson(json: String): ReleaseInfo? {
         val root = runCatching { Json.parseToJsonElement(json) as JsonObject }.getOrNull() ?: return null
         val tag = (root["tag_name"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
-        val body = (root["body"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: ""
+        val body = (root["body"] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
         val assets = (root["assets"] as? JsonArray)?.mapNotNull { el ->
             val obj = el as? JsonObject ?: return@mapNotNull null
             val name = (obj["name"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return@mapNotNull null
             val url = (obj["browser_download_url"] as? JsonPrimitive)?.takeIf { it.isString }?.content
                 ?: return@mapNotNull null
             ReleaseAsset(name, url)
-        } ?: emptyList()
+        }.orEmpty()
         return ReleaseInfo(tagName = tag, body = body, assets = assets)
     }
 
@@ -76,11 +79,14 @@ object UpdateChecker {
         return assets.firstOrNull { it.name == "app-universal-release.apk" }?.url
     }
 
-    /** 匿名 GET releases/latest 并按 ABI 选好直链；网络/解析失败或无可用安装包返回 null */
+    /**
+     * 匿名 GET releases/latest 并按 ABI 选好直链；网络/解析失败返回 null。
+     * release 里选不出安装包资产（如资产改名/缺失）时回退 Releases 网页，弹窗仍可展示而不是误报「已是最新」。
+     */
     fun fetchLatest(supportedAbis: List<String>): UpdateFound? {
         val json = runCatching { httpGet(RELEASES_API_URL) }.getOrNull() ?: return null
         val release = parseReleaseJson(json) ?: return null
-        val url = downloadUrlFor(release.assets, supportedAbis) ?: return null
+        val url = downloadUrlFor(release.assets, supportedAbis) ?: RELEASES_PAGE_URL
         return UpdateFound(release.tagName, release.body, url)
     }
 

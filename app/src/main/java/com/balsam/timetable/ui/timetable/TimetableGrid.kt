@@ -147,6 +147,7 @@ internal fun TimetableGrid(
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 private fun WeekContent(
     state: TimetableViewModel.UiState.Ready,
     week: Int,
@@ -420,11 +421,11 @@ private fun WeekContent(
                         }
                         // 课程块：按时间段重叠分组。组内优先显示本周课程；
                         // 非本周灰显 + 底部「非本周」；重叠多门时底部「另有N门」，点击弹列表选择
-                        val day_entries = mutableListOf<LessonRef>()
+                        val dayEntries = mutableListOf<LessonRef>()
                         state.courses.forEach { cwl ->
                             cwl.lessons.forEach { l ->
                                 if (l.dayOfWeek == dow) {
-                                    day_entries.add(
+                                    dayEntries.add(
                                         LessonRef(
                                             cwl, l,
                                             WeekLogic.lessonActive(week, l.weekSet),
@@ -434,7 +435,7 @@ private fun WeekContent(
                             }
                         }
                         val groups = mutableListOf<MutableList<LessonRef>>()
-                        day_entries.sortedBy { it.lesson.startSlot }.forEach { e ->
+                        dayEntries.sortedBy { it.lesson.startSlot }.forEach { e ->
                             val g = groups.firstOrNull { grp ->
                                 grp.any {
                                     it.lesson.startSlot <= e.lesson.endSlot &&

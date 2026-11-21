@@ -16,9 +16,9 @@ class AlarmReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val courseName = intent.getStringExtra(EXTRA_COURSE_NAME) ?: return@launch
-                val slotText = intent.getStringExtra(EXTRA_SLOT_TEXT) ?: ""
-                val location = intent.getStringExtra(EXTRA_LOCATION) ?: ""
-                val teacher = intent.getStringExtra(EXTRA_TEACHER) ?: ""
+                val slotText = intent.getStringExtra(EXTRA_SLOT_TEXT).orEmpty()
+                val location = intent.getStringExtra(EXTRA_LOCATION).orEmpty()
+                val teacher = intent.getStringExtra(EXTRA_TEACHER).orEmpty()
                 val notifId = intent.getIntExtra(EXTRA_NOTIF_ID, courseName.hashCode())
 
                 // 排闹钟后才开启节假日开关/修改节假日列表时，触发时刻再拦一道

@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.data.db
 
 import androidx.room.Dao
@@ -85,6 +87,10 @@ interface CourseDao {
     @Transaction
     @Query("SELECT * FROM courses WHERE semesterId = :semesterId")
     suspend fun withLessonsOnce(semesterId: Long): List<CourseWithLessons>
+
+    /** 该学期是否有课程（首页「从未备份」横幅的轻量判据，避免为判空拉全量课程+课时） */
+    @Query("SELECT EXISTS(SELECT 1 FROM courses WHERE semesterId = :semesterId)")
+    fun hasCourses(semesterId: Long): Flow<Boolean>
 
     @Query("SELECT * FROM courses WHERE id = :id")
     suspend fun byId(id: Long): Course?

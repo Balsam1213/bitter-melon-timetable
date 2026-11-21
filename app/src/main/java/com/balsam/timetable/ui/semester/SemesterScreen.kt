@@ -121,7 +121,6 @@ fun SemesterScreen(
             initialName = SemesterDefaults.nameSuggestion(),
             initialStartDate = SemesterDefaults.startSuggestion(),
             initialTotalWeeks = SemesterDefaults.TOTAL_WEEKS,
-            allowImportAfter = true,
             semesters = semesters,
             onDismiss = { creating = false },
             onConfirm = { name, start, weeks, copyFrom, importAfter ->
@@ -238,7 +237,6 @@ private fun SemesterEditDialog(
     initialName: String,
     initialStartDate: String,
     initialTotalWeeks: Int,
-    allowImportAfter: Boolean = false,
     semesters: List<Semester>,
     onDismiss: () -> Unit,
     onConfirm: (name: String, startDate: String, totalWeeks: Int, copySlotsFrom: Long?, importAfter: Boolean) -> Unit,

@@ -31,6 +31,8 @@ object ReminderPlanner {
         val slotText: String,
     )
 
+    // 课程/节次/时间窗的多层过滤循环：continue 多出口是排课决策的自然写法
+    @Suppress("LoopWithTooManyJumpStatements")
     fun plan(
         now: LocalDateTime,
         semester: Semester,

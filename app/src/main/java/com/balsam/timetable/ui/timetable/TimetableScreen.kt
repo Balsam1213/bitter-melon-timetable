@@ -113,6 +113,7 @@ private fun EmptyHome(onOpenImport: () -> Unit, onOpenSemesters: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("LongMethod", "LongParameterList")
 private fun ReadyHome(
     state: TimetableViewModel.UiState.Ready,
     vm: TimetableViewModel,
@@ -213,7 +214,7 @@ private fun ReadyHome(
                             expanded = weekMenuOpen,
                             onDismissRequest = { weekMenuOpen = false },
                         ) {
-                            (1..semester.totalWeeks).forEach { w ->
+                            for (w in 1..semester.totalWeeks) {
                                 DropdownMenuItem(
                                     text = {
                                         Text(if (w == state.todayWeek) "第${w}周（本周）" else "第${w}周")

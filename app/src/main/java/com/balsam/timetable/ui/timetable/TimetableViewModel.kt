@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -66,7 +67,7 @@ class TimetableViewModel : ViewModel() {
     }
 
     val uiState: StateFlow<UiState> =
-        combine(repo.currentSemester(), selectedWeek, settingsRepo.settings) { s, w, st ->
+        combine(repo.currentSemester(), selectedWeek, settingsRepo.settings.distinctUntilChanged()) { s, w, st ->
             Triple(s, w, st)
         }.flatMapLatest { (semester, selWeek, settings) ->
             if (semester == null) {
@@ -115,11 +116,18 @@ class TimetableViewModel : ViewModel() {
     private val hasCurrentSemesterCourses: Flow<Boolean> = repo.currentSemester()
         .flatMapLatest { sem ->
             if (sem == null) flowOf(false)
-            else repo.coursesWithLessons(sem.id).map { it.isNotEmpty() }
+            else repo.hasCourses(sem.id)
         }
 
+    // DataStore 对任意 key 的写入都会发射 settings；distinctUntilChanged 避免无关写入
+    // （备份时间/通知已问/更新检查日）取消重建整条课程流水线
     val banner: StateFlow<HomeBanner?> =
-        combine(settingsRepo.settings, settingsRepo.lastBackupOk, hasCurrentSemesterCourses, bannerRefresh) { st, lastOk, hasCourses, _ ->
+        combine(
+            settingsRepo.settings.distinctUntilChanged(),
+            settingsRepo.lastBackupOk,
+            hasCurrentSemesterCourses,
+            bannerRefresh,
+        ) { st, lastOk, hasCourses, _ ->
             when (pickHomeBanner(
                 reminderEnabled = st.reminderEnabled,
                 reminderBlocked = !hasNotificationPermission() || !canScheduleExactAlarms(),

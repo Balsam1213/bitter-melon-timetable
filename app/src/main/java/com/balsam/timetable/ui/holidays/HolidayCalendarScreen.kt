@@ -316,7 +316,7 @@ private fun DayEditSheet(
                         if (isMakeup) vm.setMakeupDow(key, null) else vm.setDayStatus(key, DayStatus.Makeup(null))
                     },
                 )
-                (1..7).forEach { dow ->
+                for (dow in 1..7) {
                     FilterChip(
                         selected = isMakeup && currentDow == dow,
                         label = { Text(WEEK_HEADERS[dow - 1]) },

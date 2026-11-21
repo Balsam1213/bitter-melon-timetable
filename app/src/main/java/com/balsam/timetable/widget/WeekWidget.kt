@@ -79,7 +79,7 @@ class WeekWidget : GlanceAppWidget() {
         // 任何异常都不能让小组件永远停在加载动画：降级为错误文案
         val data = try {
             withContext(Dispatchers.IO) { buildWeekData() }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             WeekData("数据加载失败", null, errorText = "数据加载失败，点这里重试")
         }
         val openIntent = Intent(context, MainActivity::class.java)

@@ -50,7 +50,7 @@ class NextClassWidget : GlanceAppWidget() {
         // 任何异常都不能让小组件永远停在加载动画：降级为错误文案
         val data = try {
             withContext(Dispatchers.IO) { buildData(context) }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             NextClassData(
                 NextClassState.NO_CLASS, "数据加载失败", "点这里重试", "", "", "",
             )
@@ -67,8 +67,8 @@ class NextClassWidget : GlanceAppWidget() {
     private suspend fun buildData(context: Context): NextClassData {
         val now = java.time.LocalDateTime.now()
         val semester = Graph.repository.currentSemesterOnce()
-        val slots = semester?.let { Graph.repository.slotsOnce(it.id) } ?: emptyList()
-        val courses = semester?.let { Graph.repository.coursesOnce(it.id) } ?: emptyList()
+        val slots = semester?.let { Graph.repository.slotsOnce(it.id) }.orEmpty()
+        val courses = semester?.let { Graph.repository.coursesOnce(it.id) }.orEmpty()
         val holidayCal = Graph.settingsRepository.holidayCalendarOnce()
         val data = NextClassLogic.nextClassData(now, semester, slots, courses, holidayCal)
         // 自续链：排下一次翻面闹钟（上课结束 / 下节课开始）

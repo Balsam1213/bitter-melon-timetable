@@ -102,7 +102,7 @@ class XlsxParserTest {
         try {
             XlsxParser.parse("这不是zip".toByteArray())
             fail("非 zip 应当抛出")
-        } catch (e: ZipException) {
+        } catch (_: ZipException) {
             // friendlyParseError 会把它翻译为中文
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message!!.contains("不是有效的 Excel"))

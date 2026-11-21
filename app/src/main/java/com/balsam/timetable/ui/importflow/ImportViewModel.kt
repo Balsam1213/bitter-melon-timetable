@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.ui.importflow
 
 import android.graphics.Bitmap
@@ -54,6 +56,8 @@ class ImportViewModel : ViewModel() {
         val pendingNewSemester: SemesterDraft? = null,
         /** 目标学期周数（JSON 取内嵌值，其余取当前学期或 20），预览页逐条校验用 */
         val totalWeeks: Int = 20,
+        /** 目标学期节数（编辑记录弹窗的节次下拉上限），取当前学期真实节数或默认模板 */
+        val slotCount: Int = 13,
     )
 
     private val _ui = MutableStateFlow(UiState())
@@ -91,6 +95,11 @@ class ImportViewModel : ViewModel() {
 
     private suspend fun targetTotalWeeks(): Int = Graph.repository.currentSemesterOnce()?.totalWeeks ?: 20
 
+    /** 目标学期节数：当前学期真实节数优先，无学期时按默认节次模板 */
+    private suspend fun targetSlotCount(): Int =
+        Graph.repository.currentSemesterOnce()?.let { Graph.repository.slotsOnce(it.id).size }
+            ?: Graph.repository.defaultSlots(0).size
+
     fun parseFile(bytes: ByteArray, fileName: String) {
         viewModelScope.launch {
             _ui.value = _ui.value.copy(busy = true, error = null, importResult = null)
@@ -105,6 +114,7 @@ class ImportViewModel : ViewModel() {
                             jsonDoc = doc,
                             entries = loadedEntries(doc.entries.map { it.toParsedEntry() }, doc.semester.totalWeeks),
                             totalWeeks = doc.semester.totalWeeks,
+                            slotCount = targetSlotCount(),
                         )
                     }
                     lower.endsWith(".xlsx") -> {
@@ -116,6 +126,7 @@ class ImportViewModel : ViewModel() {
                             sourceLabel = "Excel 文件",
                             entries = loadedEntries(entries, weeks),
                             totalWeeks = weeks,
+                            slotCount = targetSlotCount(),
                         )
                         check(entries.isNotEmpty()) { "没有解析出课程，请按模板格式填写（列：星期、节次、课程…）" }
                     }
@@ -129,6 +140,7 @@ class ImportViewModel : ViewModel() {
                             sourceLabel = "CSV 文件",
                             entries = loadedEntries(entries, weeks),
                             totalWeeks = weeks,
+                            slotCount = targetSlotCount(),
                         )
                         check(entries.isNotEmpty()) { "没有解析出课程，请按模板格式填写（列：星期、节次、课程…）" }
                     }
@@ -169,6 +181,7 @@ class ImportViewModel : ViewModel() {
                     sourceLabel = "图片识别",
                     entries = loadedEntries(adjusted, totalWeeks),
                     totalWeeks = totalWeeks,
+                    slotCount = targetSlotCount(),
                 )
                 check(adjusted.isNotEmpty()) { "没有识别出课程，请换一张更清晰的课表截图" }
             } catch (e: OcrParser.OcrParseException) {
@@ -218,6 +231,7 @@ class ImportViewModel : ViewModel() {
                 sourceLabel = "教务网导入",
                 entries = loadedEntries(entries, weeks),
                 totalWeeks = weeks,
+                slotCount = targetSlotCount(),
             )
         }
     }
@@ -233,7 +247,7 @@ class ImportViewModel : ViewModel() {
                 } else if (doc != null && freshSemester) {
                     // 新建学期流程：强制导入当前学期（忽略文件内嵌学期元数据）
                     val sem = repo.currentSemesterOnce()
-                        ?: throw IllegalStateException("没有当前学期")
+                        ?: error("没有当前学期")
                     if (doc.slots.isNotEmpty() && repo.slotsOnce(sem.id).isEmpty()) {
                         repo.replaceSlots(
                             sem.id,
@@ -246,7 +260,7 @@ class ImportViewModel : ViewModel() {
                         clearExisting = false,
                     )
                 } else {
-                    var sem = repo.currentSemesterOnce()
+                    val sem = repo.currentSemesterOnce()
                     if (sem == null) {
                         // 首次导入没有学期：弹窗让用户核对学期信息后再建，
                         // 不再静默用「本周一」当开学日（那会让周次与提醒全错位）
@@ -279,9 +293,10 @@ class ImportViewModel : ViewModel() {
             _ui.value = _ui.value.copy(busy = true, pendingNewSemester = null)
             try {
                 repo.createSemester(draft.name.trim(), draft.startDate, draft.totalWeeks, setCurrent = true)
-                val sem = repo.currentSemesterOnce() ?: throw IllegalStateException("学期创建失败")
+                val sem = repo.currentSemesterOnce() ?: error("学期创建失败")
+                val slotCount = repo.slotsOnce(sem.id).size
                 val result = repo.importEntries(sem.id, _ui.value.entries, clearExisting = false)
-                _ui.value = _ui.value.copy(busy = false, importResult = result)
+                _ui.value = _ui.value.copy(busy = false, importResult = result, slotCount = slotCount)
             } catch (e: Exception) {
                 _ui.value = _ui.value.copy(busy = false, error = "导入失败：${e.message ?: e.javaClass.simpleName}")
             }

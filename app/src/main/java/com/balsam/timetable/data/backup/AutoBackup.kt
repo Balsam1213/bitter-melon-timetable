@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.data.backup
 
 import android.content.ContentUris
@@ -33,7 +35,7 @@ import java.time.format.DateTimeFormatter
 object AutoBackup {
 
     const val KEEP_COUNT = 7
-    private val DIR_NAME = "苦瓜课表"
+    private const val DIR_NAME = "苦瓜课表"
     private val NAME_DATE = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
 
     /** 备份结果：NoSemester = 没有当前学期（新装机属正常，不算失败、不写状态，避免设置页误报红字） */
@@ -97,7 +99,7 @@ object AutoBackup {
             ?.filter { it.isFile && it.extension == "json" }
             ?.sortedByDescending { it.lastModified() }
             ?.map { BackupEntry(it.name, it.lastModified(), it.length()) }
-            ?: emptyList()
+            .orEmpty()
     }
 
     /** 恢复页列表项：备份文件 + 解析出的摘要（解析失败时 doc 为 null、parseError 说明原因） */

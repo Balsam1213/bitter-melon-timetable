@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
+@Suppress("LongMethod")
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenImport: () -> Unit,
@@ -63,7 +65,11 @@ fun SettingsScreen(
     val vm: SettingsViewModel = viewModel()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val backupUi by vm.backupUi.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+
+    // 手动检查更新的结果（已是最新/失败）只在本页有意义：离开即重置，避免返回时残留旧文案
+    DisposableEffect(Unit) {
+        onDispose { vm.resetUpdateCheck() }
+    }
 
     var notifGranted by remember { mutableStateOf(vm.hasNotificationPermission()) }
     var exactAlarmsGranted by remember { mutableStateOf(vm.canScheduleExactAlarms()) }
@@ -233,8 +239,8 @@ fun SettingsScreen(
                 TextButton(onClick = { exportLauncher.launch("课程表备份.json") }) {
                     Text("导出当前学期为 JSON")
                 }
-                if (exportError != null) {
-                    Text(exportError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                exportError?.let { err ->
+                    Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

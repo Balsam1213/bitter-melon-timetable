@@ -144,11 +144,11 @@ class RestoreViewModel : ViewModel() {
                     // 快照失败必须中止：不能在没有退路的情况下清空用户数据
                     val snapshotOk = withContext(Dispatchers.IO) {
                         val currentDoc = repo.exportDoc(targetId)
-                            ?: throw IllegalStateException("读取目标学期当前数据失败")
+                            ?: error("读取目标学期当前数据失败")
                         AutoBackup.writeSnapshot(Graph.appContext, targetName, AutoBackup.encodeDoc(currentDoc))
                     }
                     if (!snapshotOk) {
-                        throw IllegalStateException(
+                        error(
                             "自动快照创建失败（检查存储空间），已中止恢复。" +
                                 "也可以先用「导出当前学期为 JSON」手动备份，再重试完整恢复",
                         )

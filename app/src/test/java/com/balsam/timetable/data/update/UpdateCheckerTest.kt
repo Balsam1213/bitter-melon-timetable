@@ -20,6 +20,13 @@ class UpdateCheckerTest {
         assertTrue(UpdateChecker.RELEASES_API_URL.endsWith("/releases/latest"))
     }
 
+    @Test
+    fun `Releases 网页兜底链接为https且指向本仓库`() {
+        assertTrue(UpdateChecker.RELEASES_PAGE_URL.startsWith("https://"))
+        assertTrue(UpdateChecker.RELEASES_PAGE_URL.contains("Balsam1213/bitter-melon-timetable"))
+        assertTrue(UpdateChecker.RELEASES_PAGE_URL.endsWith("/releases/latest"))
+    }
+
     // ---------------- compareVersions ----------------
 
     @Test

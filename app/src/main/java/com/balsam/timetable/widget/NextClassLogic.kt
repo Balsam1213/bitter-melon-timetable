@@ -96,6 +96,8 @@ internal object NextClassLogic {
     private class Moments(val running: ClassMoment?, val upcoming: ClassMoment?)
 
     /** 7 天窗口内收集「上课中最早」与「下一节最早」两堂课 */
+    // 日期×课程×节次的三层过滤循环：continue 多出口与嵌套是窗口扫描的固有形态
+    @Suppress("LoopWithTooManyJumpStatements", "NestedBlockDepth")
     private fun classMoments(
         now: LocalDateTime,
         semester: Semester,

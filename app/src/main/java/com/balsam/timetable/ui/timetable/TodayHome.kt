@@ -18,6 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +35,7 @@ import com.balsam.timetable.data.model.TodayLesson
 import com.balsam.timetable.data.model.TodayLogic
 import com.balsam.timetable.ui.theme.makeupDayBadgeColors
 import com.balsam.timetable.ui.theme.offDayBadgeColors
+import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -120,7 +126,15 @@ private fun Badge(text: String, bg: Color, fg: Color) {
 
 @Composable
 private fun MainStatusLine(state: TimetableViewModel.UiState.Ready) {
-    val now = LocalDateTime.now()
+    // 本地时钟自滴答（30s）：UiState 在两次课程状态翻转之间结构相等而被去重，
+    // 只靠 VM tick 的话「还有 N 分钟」会静止不动；本地化后仅此小组件每 30s 重组
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            now = LocalDateTime.now()
+        }
+    }
     val off = state.holidays.isOff(state.today)
     val current = if (off || state.todayWeek == null) null else TodayLogic.currentOrNext(state.todayLessons)
     when {
@@ -171,7 +185,7 @@ private fun MainStatusLine(state: TimetableViewModel.UiState.Ready) {
 
 @Composable
 private fun Timeline(state: TimetableViewModel.UiState.Ready, onOpenCourse: (Long) -> Unit) {
-    val rows = buildGridRows(state.slots)
+    val rows = remember(state.slots) { buildGridRows(state.slots) }
     Column(Modifier.fillMaxWidth()) {
         rows.forEach { row ->
             when (row) {

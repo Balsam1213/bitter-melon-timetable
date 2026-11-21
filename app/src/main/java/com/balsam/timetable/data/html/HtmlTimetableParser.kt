@@ -23,7 +23,6 @@ object HtmlTimetableParser {
         "(\\d{1,2})\\s*[-–~]\\s*(\\d{1,2})\\s*周\\s*(?:星期|周)\\s*([一二三四五六日天])\\s*(?:第)?\\s*(\\d{1,2})\\s*(?:[-–~]\\s*(\\d{1,2}))?\\s*节"
     )
     private val dayHeaderRegex = Regex("星期([一二三四五六日天])")
-    private val weekRange = Regex("(\\d{1,2})\\s*[-–~]\\s*(\\d{1,2})\\s*周")
 
     fun parse(html: String): List<ParsedEntry> {
         val doc = Jsoup.parse(html)
@@ -41,6 +40,8 @@ object HtmlTimetableParser {
 
     // —— 版式 A：选课记录列表 ——
 
+    // 表头探测与逐行过滤的多出口循环：continue/break 是表格跳行的自然写法
+    @Suppress("LoopWithTooManyJumpStatements")
     private fun parseListRows(rows: List<Element>): List<ParsedEntry> {
         var nameIdx = -1
         var teacherIdx = -1
@@ -96,6 +97,8 @@ object HtmlTimetableParser {
 
     // —— 版式 B：周课表网格 ——
 
+    // 表头探测 + 双层网格跳行循环：多出口与分支数是网格解析的固有形态
+    @Suppress("LoopWithTooManyJumpStatements", "CyclomaticComplexMethod")
     private fun parseGridRows(rows: List<Element>): List<ParsedEntry> {
         // 表头行：含 ≥5 个「星期X」单元格，记录 列号→星期
         var dayCols: Map<Int, Int>? = null
@@ -123,7 +126,7 @@ object HtmlTimetableParser {
         for (tr in rows) {
             val cells = tr.select("td")
             if (cells.isEmpty()) continue
-            val slot = cells.first()!!.text().trim().toIntOrNull() ?: continue
+            val slot = cells.firstOrNull()?.text()?.trim()?.toIntOrNull() ?: continue
             if (slot !in 1..20) continue
             for ((colIdx, day) in dayCols) {
                 if (colIdx >= cells.size) continue
@@ -165,11 +168,10 @@ object HtmlTimetableParser {
         }
         val startSlot = g[4].toIntOrNull() ?: 1
         val endSlot = g[5].toIntOrNull() ?: startSlot
+        val kw = OcrParser.locationKeyword.find(locationSeg)?.value
         val location = when {
             locationSeg.isEmpty() -> ""
-            OcrParser.locationKeyword.containsMatchIn(locationSeg) ->
-                OcrParser.locationKeyword.find(locationSeg)!!.value + locationSeg
-                    .substringAfter(OcrParser.locationKeyword.find(locationSeg)!!.value)
+            kw != null -> kw + locationSeg.substringAfter(kw)
             else -> locationSeg
         }
         return ParsedEntry(

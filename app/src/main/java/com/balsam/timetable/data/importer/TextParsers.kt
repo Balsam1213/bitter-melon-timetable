@@ -10,6 +10,7 @@ object TextParsers {
         "六" to 6, "七" to 7, "八" to 8, "九" to 9, "十" to 10,
     )
 
+    @Suppress("ReturnCount")
     fun cnToInt(s: String): Int? {
         s.toIntOrNull()?.let { return it }
         if (s.isEmpty()) return null
@@ -44,6 +45,7 @@ object TextParsers {
     }
 
     /** 星期解析：周一/星期一/礼拜一/1/一/Mon → 1..7 */
+    @Suppress("ReturnCount")
     fun dayOfWeek(text: String): Int? {
         val t = text.trim()
             .removePrefix("星期").removePrefix("礼拜").removePrefix("周")
@@ -89,6 +91,7 @@ object TextParsers {
     }
 
     /** CSV/TSV 解析（支持引号包裹、逗号内嵌） */
+    @Suppress("DoubleMutabilityForCollection")
     fun parseCsv(text: String): List<List<String>> {
         val rows = mutableListOf<List<String>>()
         var row = mutableListOf<String>()

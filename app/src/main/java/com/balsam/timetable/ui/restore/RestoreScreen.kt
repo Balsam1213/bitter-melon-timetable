@@ -170,7 +170,7 @@ private fun BackupList(
                     val doc = meta.doc
                     Text(
                         buildString {
-                            append(doc?.semester?.name ?: "")
+                            append(doc?.semester?.name.orEmpty())
                             doc?.semester?.startDate?.let { append(" · 开学 $it") }
                             doc?.let {
                                 append(" · ${it.entries.size} 条记录")
@@ -192,6 +192,7 @@ private fun BackupList(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun RestorePreview(
     state: RestoreViewModel.UiState,
     onMode: (RestoreViewModel.Mode) -> Unit,
@@ -314,7 +315,7 @@ private fun RestorePreview(
             title = { Text("确认完整恢复") },
             text = {
                 Text(
-                    "「${target?.name ?: ""}」现有的全部课程将被清空，替换为备份「${doc.semester.name}」的数据。\n\n" +
+                    "「${target?.name.orEmpty()}」现有的全部课程将被清空，替换为备份「${doc.semester.name}」的数据。\n\n" +
                         "执行前会先自动创建当前数据的快照（保存在「文档 / 苦瓜课表」），万一恢复有误，仍可从快照找回。",
                 )
             },

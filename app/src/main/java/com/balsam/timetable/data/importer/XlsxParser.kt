@@ -77,6 +77,8 @@ object XlsxParser {
         return list
     }
 
+    // currentRow 在行边界整体替换是流式解析的自然写法；XML 事件分派分支多是解析器的固有形态
+    @Suppress("DoubleMutabilityForCollection", "CyclomaticComplexMethod")
     private fun parseSheet(data: ByteArray, shared: List<String>): List<List<String>> {
         val rows = mutableListOf<List<String>>()
         var currentRow = mutableListOf<String>()
@@ -112,7 +114,7 @@ object XlsxParser {
                         val idx = columnIndex(cellRef)
                         while (currentRow.size < idx) currentRow.add("")
                         val text = when (cellType) {
-                            "s" -> shared.getOrNull(value.toString().toIntOrNull() ?: -1) ?: ""
+                            "s" -> shared.getOrNull(value.toString().toIntOrNull() ?: -1).orEmpty()
                             else -> value.toString()
                         }
                         currentRow.add(text.trim())

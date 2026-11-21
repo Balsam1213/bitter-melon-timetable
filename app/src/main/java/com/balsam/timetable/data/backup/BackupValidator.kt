@@ -24,24 +24,16 @@ object BackupValidator {
         } catch (e: Exception) {
             throw IllegalArgumentException("不是有效的课程表备份 JSON 文件", e)
         }
-        if (doc.version > ExportDoc.CURRENT_VERSION) {
-            throw IllegalArgumentException(
-                "备份版本过新（v${doc.version}），请先把应用升级到最新版再恢复",
-            )
+        require(doc.version <= ExportDoc.CURRENT_VERSION) {
+            "备份版本过新（v${doc.version}），请先把应用升级到最新版再恢复"
         }
         val sem = doc.semester
-        if (sem.name.isBlank()) {
-            throw IllegalArgumentException("备份里的学期名称为空")
+        require(sem.name.isNotBlank()) { "备份里的学期名称为空" }
+        require(runCatching { LocalDate.parse(sem.startDate) }.isSuccess) {
+            "备份里的开学日期无效（${sem.startDate}），应为 yyyy-MM-dd"
         }
-        if (runCatching { LocalDate.parse(sem.startDate) }.isFailure) {
-            throw IllegalArgumentException("备份里的开学日期无效（${sem.startDate}），应为 yyyy-MM-dd")
-        }
-        if (sem.totalWeeks !in 1..40) {
-            throw IllegalArgumentException("备份里的总周数无效（${sem.totalWeeks}）")
-        }
-        if (doc.entries.isEmpty()) {
-            throw IllegalArgumentException("备份里没有课程条目，无法恢复")
-        }
+        require(sem.totalWeeks in 1..40) { "备份里的总周数无效（${sem.totalWeeks}）" }
+        require(doc.entries.isNotEmpty()) { "备份里没有课程条目，无法恢复" }
         return doc
     }
 }

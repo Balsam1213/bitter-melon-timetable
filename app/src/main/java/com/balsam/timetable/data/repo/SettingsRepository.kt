@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.data.repo
 
 import android.content.Context

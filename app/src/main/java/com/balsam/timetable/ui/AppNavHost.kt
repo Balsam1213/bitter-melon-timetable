@@ -23,6 +23,8 @@ import com.balsam.timetable.ui.semester.SemesterScreen
 import com.balsam.timetable.ui.settings.SettingsScreen
 import com.balsam.timetable.ui.slots.TimeSlotsScreen
 import com.balsam.timetable.ui.timetable.TimetableScreen
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 
 object Routes {
@@ -48,9 +50,13 @@ fun AppNavHost() {
     // 只判定一次；中途从引导返回/杀进程重启都会因为「已有学期或已标记」自然落回 HOME。
     var start by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        val goOnboarding = !Graph.settingsRepository.onboardingDone() &&
-            Graph.repository.semesters().first().isEmpty()
-        start = if (goOnboarding) Routes.ONBOARDING else Routes.HOME
+        // DataStore 读与 Room 首发射并行：串行会把两者之和算进首帧等待
+        coroutineScope {
+            val settingsDeferred = async { Graph.settingsRepository.onboardingDone() }
+            val semestersDeferred = async { Graph.repository.semesters().first().isEmpty() }
+            val goOnboarding = !settingsDeferred.await() && semestersDeferred.await()
+            start = if (goOnboarding) Routes.ONBOARDING else Routes.HOME
+        }
     }
     val currentStart = start
     if (currentStart == null) {

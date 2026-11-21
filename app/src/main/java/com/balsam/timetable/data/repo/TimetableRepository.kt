@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.data.repo
 
 import androidx.room.withTransaction
@@ -41,6 +43,9 @@ class TimetableRepository(private val db: AppDatabase) {
     fun coursesWithLessons(semesterId: Long): Flow<List<CourseWithLessons>> = db.courseDao().withLessons(semesterId)
     suspend fun coursesOnce(semesterId: Long): List<CourseWithLessons> = db.courseDao().withLessonsOnce(semesterId)
     suspend fun courseById(id: Long): Course? = db.courseDao().byId(id)
+
+    /** 该学期是否有课程（EXISTS 轻查询，供首页「从未备份」横幅判空） */
+    fun hasCourses(semesterId: Long): Flow<Boolean> = db.courseDao().hasCourses(semesterId)
 
     // ---------------- 学期 ----------------
 

@@ -1,7 +1,9 @@
 package com.balsam.timetable.ui.components
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -51,14 +53,23 @@ fun UpdateFoundDialog(
             } else {
                 Text(
                     "当前版本 v${BuildConfig.VERSION_NAME}。" +
-                        "安装包按你的设备自动从 GitHub Releases 选择（x86 未发布时给通用包）。",
+                        "安装包将从 GitHub Releases 直接下载（按你的设备自动选择）。",
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 onDismiss()
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(found.downloadUrl))) }
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(found.downloadUrl)))
+                } catch (_: ActivityNotFoundException) {
+                    // 无浏览器可用时不再静默：提示手动到 Releases 页下载
+                    Toast.makeText(
+                        context,
+                        "未找到可用的浏览器，请到 GitHub Releases 页面手动下载",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
             }) { Text("下载安装包") }
         },
         dismissButton = {

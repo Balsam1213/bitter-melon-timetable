@@ -1,5 +1,14 @@
 # 更新日志
 
+## v1.7.1（2026-11-21）
+
+**detekt 静态分析门禁接入 + 已知 bug 修复 + 低风险优化**
+
+- **detekt 接入（CI spike 验证通过）**：TODO 预案落地——1.23.8 对 Kotlin 2.4 元数据硬性不可用（官方兼容表止步 Kotlin 2.0.21），采用 **detekt 2.0.0-alpha.6**（插件 id 改为 `dev.detekt`，`failOnSeverity=Error` 即构建失败）。首轮 470 条 findings：约定冲突类（MagicNumber/FunctionNaming/InjectDispatcher/ImplicitDefaultLocale/MatchingDeclarationName/TooGenericExceptionCaught）与结构性阈值（LongMethod/CyclomaticComplexMethod/ReturnCount 等）经 `config/detekt/detekt.yml` 覆盖并注明理由，其余 ~150 条逐条修码（`boundingBox!!` 收口为非空行对象、`require` 化校验、orEmpty、死代码清理等）；CI 双工作流在 Lint 与单测之间加 `:app:detektMain` 门禁
+- **修复**：向导就绪页 `"已导入 $state.courseCount 门课程"` 少花括号导致整段 UiState 对象被插进文案（v1.5 起用户可见，附 androidTest 回归断言）；导入预览「编辑记录」弹窗节次下拉硬编码 1–16，改为目标学期真实节数；「下载安装包」无浏览器时不再静默（Toast 提示）；弹窗文案去掉「x86 未发布时给通用包」类开发黑话；Release 资产异常选不出直链时回退 Releases 网页（不再误报「已是最新」）；设置页手动检查结果（已是最新/失败）离开页面即重置；教务网 WebView 的 SSL/明文/站外确认会话记忆改 `rememberSaveable`（旋转不再重弹）
+- **优化**：今日视图「还有 N 分钟」倒计时在两次课程状态翻转间静止（UiState 结构相等被去重）——改本地时钟 30s 自滴答，仅状态行重组；启动路由判定 DataStore 与 Room 首读改并行（缩短首帧等待）；首页「从未备份」横幅判空改 `EXISTS` 轻查询（不再为判空拉全量课程+课时）；设置流 `distinctUntilChanged`——备份时间戳等无关 DataStore 写入不再取消重建整条课程流水线
+- 单测 197 → 198；`versionName` 1.7.1 / `versionCode` 12
+
 ## v1.7.0（2026-11-21）
 
 **检查更新 + 首页「从未备份」温和提示**

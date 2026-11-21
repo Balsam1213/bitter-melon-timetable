@@ -52,6 +52,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -74,12 +76,18 @@ import org.json.JSONTokener
  * - 「清除登录状态」可主动清掉本应用持有的教务网 Cookie 与站点存储
  * 这些决定只在本页面存活，退出即失效。
  */
+/** Set<String> 的 Bundle 存取器（rememberSaveable 用）：存为字符串列表 */
+private val stringSetSaver = Saver<Set<String>, List<String>>(
+    save = { it.toList() },
+    restore = { it.toSet() },
+)
 
 /** 允许交给系统应用处理的非网页 scheme 白名单；intent: 等一律不在列 */
 private val EXTERNAL_SCHEME_WHITELIST = setOf("tel", "mailto", "sms", "geo")
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 fun WebImportScreen(
     onBack: () -> Unit,
     onParsed: (List<com.balsam.timetable.data.importer.ParsedEntry>) -> Unit,
@@ -99,10 +107,11 @@ fun WebImportScreen(
     // 跳转到其他网站前确认；target 为站外地址
     var offSitePrompt by remember { mutableStateOf<String?>(null) }
     // 会话级记忆：证书放行/拒绝按 host，明文 http 按 host，站外域名按注册域——避免子资源错误反复弹窗
-    var sslApproved by remember { mutableStateOf(setOf<String>()) }
-    var sslDenied by remember { mutableStateOf(setOf<String>()) }
-    var httpApproved by remember { mutableStateOf(setOf<String>()) }
-    var approvedDomains by remember { mutableStateOf(setOf<String>()) }
+    // rememberSaveable：旋转重建不丢选择（Set<String> 需自定义 Saver 存入 Bundle）
+    var sslApproved by rememberSaveable(stateSaver = stringSetSaver) { mutableStateOf(setOf<String>()) }
+    var sslDenied by rememberSaveable(stateSaver = stringSetSaver) { mutableStateOf(setOf<String>()) }
+    var httpApproved by rememberSaveable(stateSaver = stringSetSaver) { mutableStateOf(setOf<String>()) }
+    var approvedDomains by rememberSaveable(stateSaver = stringSetSaver) { mutableStateOf(setOf<String>()) }
     // 安全开关：默认严格（混合内容禁、第三方 Cookie 关），按需在菜单临时放开并持久化
     var allowMixed by remember { mutableStateOf(false) }
     var thirdPartyCookies by remember { mutableStateOf(false) }
@@ -460,7 +469,7 @@ fun WebImportScreen(
                                     // 校园内网系统证书常有异常：浏览器会弹"继续访问"，
                                     // WebView 默认直接失败，这里交给用户确认。
                                     // 同一 host 的子资源错误会触发多次，按 host 记住本会话的选择
-                                    val host = Uri.parse(view.url ?: "").host
+                                    val host = Uri.parse(view.url.orEmpty()).host
                                     if (host == null) {
                                         handler.cancel()
                                         return

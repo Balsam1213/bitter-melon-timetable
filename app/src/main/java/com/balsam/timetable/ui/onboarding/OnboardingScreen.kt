@@ -269,7 +269,7 @@ private fun ReadyStep(
             if (state.semesterCreated) {
                 Text("学期：${state.semesterDisplayName}")
                 Text(
-                    if (state.courseCount > 0) "已导入 $state.courseCount 门课程，本周课表已生成"
+                    if (state.courseCount > 0) "已导入 ${state.courseCount} 门课程，本周课表已生成"
                     else "本周课表已生成（还没有课程，可稍后导入或手动添加）",
                 )
             } else {

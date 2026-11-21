@@ -1,5 +1,8 @@
+@file:Suppress("TooManyFunctions")
+
 package com.balsam.timetable.data.importer
 
+import android.graphics.Rect
 import com.balsam.timetable.data.model.WeekPattern
 import com.balsam.timetable.data.model.WeeksCodec
 import com.google.mlkit.vision.text.Text
@@ -47,10 +50,14 @@ object OcrParser {
 
     private data class Piece(val day: Int, val row: Int, val top: Int, val bottom: Int, val text: String)
 
+    /** 带非空坐标框的行：解析入口统一收口，下游不再判空（对应 ML Kit 的 boundingBox 可空） */
+    private data class BLine(val text: String, val box: Rect, val elements: List<Text.Element>)
+
     fun parse(text: Text): List<ParsedEntry> {
         val allLines = text.textBlocks
             .flatMap { it.lines }
-            .filter { it.boundingBox != null && it.text.isNotBlank() }
+            .mapNotNull { l -> l.boundingBox?.let { BLine(l.text, it, l.elements) } }
+            .filter { it.text.isNotBlank() }
 
         // 两种版式自动分流：
         // A. 网格课表——存在「周一~周日」表头行；
@@ -79,22 +86,23 @@ object OcrParser {
      * 结构：每行一门课——序号 | 学期 | 编号 | 课程名称 | 班号 | 学院 | 教师 | 学分 | 性质 | 上课时间地点。
      * 行锚点是最左侧的纯序号；时间地点列在最右，含若干个「1-17周 星期二 9-10节 + 地点」块。
      */
-    private fun parseListTable(allLines: List<Text.Line>): List<ParsedEntry> {
-        val leftMost = allLines.minOf { it.boundingBox!!.left }
+    @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
+    private fun parseListTable(allLines: List<BLine>): List<ParsedEntry> {
+        val leftMost = allLines.minOf { it.box.left }
         val anchors = allLines
             .filter { l ->
-                val b = l.boundingBox!!
+                val b = l.box
                 b.left <= leftMost + 60 && pureNumber.matches(l.text.trim()) &&
                     (l.text.trim().toIntOrNull() ?: 0) in 1..40
             }
-            .sortedBy { it.boundingBox!!.centerY() }
+            .sortedBy { it.box.centerY() }
         if (anchors.size < 2) {
             throw OcrParseException("未能识别出课程列表的行序号，请确保截图包含完整表格")
         }
 
-        val imageRight = allLines.maxOf { it.boundingBox!!.right }
+        val imageRight = allLines.maxOf { it.box.right }
         val columnMargin = ((imageRight - leftMost) * 0.04).toInt().coerceAtLeast(20)
-        val firstTop = anchors.first().boundingBox!!.centerY()
+        val firstTop = anchors.first().box.centerY()
 
         // 表头行推导「课程名称」「任课教师」两列的 x 范围，用于精确切分
         var nameRange: LongRange? = null
@@ -120,23 +128,22 @@ object OcrParser {
 
         val entries = mutableListOf<ParsedEntry>()
         for (i in anchors.indices) {
-            val rowTop = anchors[i].boundingBox!!.centerY() - 8
+            val rowTop = anchors[i].box.centerY() - 8
             val rowBottom = anchors.getOrNull(i + 1)
-                ?.let { it.boundingBox!!.centerY() - 8 } ?: Int.MAX_VALUE
+                ?.let { it.box.centerY() - 8 } ?: Int.MAX_VALUE
             val rowLines = allLines.filter { l ->
-                val cy = l.boundingBox!!.centerY()
+                val cy = l.box.centerY()
                 cy >= rowTop && cy < rowBottom && cy >= firstTop - 8
             }
 
             val blockLines = rowLines.filter { listTimeRegex.containsMatchIn(it.text) }
             if (blockLines.isEmpty()) continue
             // 时间地点列：以时间块行的左缘为界，右侧的行都属于该列
-            val timeLeft = blockLines.minOf { it.boundingBox!!.left } - columnMargin
+            val timeLeft = blockLines.minOf { it.box.left } - columnMargin
             val timeText = rowLines
-                .filter { it.boundingBox!!.left >= timeLeft }
-                .sortedBy { it.boundingBox!!.top }
+                .filter { it.box.left >= timeLeft }
+                .sortedBy { it.box.top }
                 .joinToString("\n") { it.text.trim() }
-            val others = rowLines.filter { it.boundingBox!!.left < timeLeft }
 
             // 课名 / 教师：列表表格一行常被 ML Kit 粘成一条文本。
             // 行级提取：左侧所有行按 x 排序合并 → 剥噪声 → 中文分段，
@@ -144,8 +151,8 @@ object OcrParser {
             val nameParts = mutableListOf<String>()
             val teacherParts = mutableListOf<String>()
             val leftText = rowLines
-                .filter { it.boundingBox!!.left < timeLeft }
-                .sortedBy { it.boundingBox!!.left }
+                .filter { it.box.left < timeLeft }
+                .sortedBy { it.box.left }
                 .joinToString(" ") { it.text.trim() }
             extractListNameTeacher(leftText, nameParts, teacherParts)
             val name = nameParts.joinToString("")
@@ -160,7 +167,7 @@ object OcrParser {
                     .replace(Regex("[\\s\\n]"), "")
                 val location = when {
                     seg.isEmpty() -> ""
-                    locationKeyword.containsMatchIn(seg) -> locationKeyword.find(seg)!!.value
+                    locationKeyword.containsMatchIn(seg) -> locationKeyword.find(seg)?.value.orEmpty()
                     seg.length in 2..20 -> seg
                     else -> ""
                 }
@@ -189,7 +196,8 @@ object OcrParser {
         return entries
     }
 
-    private fun parseGrid(allLines: List<Text.Line>): List<ParsedEntry> {
+    @Suppress("LongMethod", "CyclomaticComplexMethod", "ThrowsCount")
+    private fun parseGrid(allLines: List<BLine>): List<ParsedEntry> {
 
         // 0. 定位「周一~周日」表头（允许同格带日期，如「星期一 2026-09-07」「周一 9/7」），
         //    表头以上的一切（状态栏、标题、日期）全部丢弃
@@ -213,8 +221,8 @@ object OcrParser {
                 else "未能定位「周一~周日」表头。识别到的文字：$sample"
             )
         }
-        val headerBottom = headerLines.maxOf { it.boundingBox!!.bottom }
-        val lines = allLines.filter { it.boundingBox!!.top > headerBottom - 6 }
+        val headerBottom = headerLines.maxOf { it.box.bottom }
+        val lines = allLines.filter { it.box.top > headerBottom - 6 }
 
         // 1. 表头 → 每列 x 坐标（星期字样在行内任意位置均可）
         val dayColumns = mutableMapOf<Int, MutableList<Int>>()
@@ -226,7 +234,7 @@ object OcrParser {
                 '日', '天' -> 7
                 else -> null
             } ?: return@forEach
-            dayColumns.getOrPut(d) { mutableListOf() }.add(line.boundingBox!!.centerX())
+            dayColumns.getOrPut(d) { mutableListOf() }.add(line.box.centerX())
         }
         if (dayColumns.size < 2) {
             throw OcrParseException("未能识别出「周一~周日」表头，请换一张更清晰的课表截图")
@@ -242,20 +250,20 @@ object OcrParser {
         // 2. 节次序号 → 行 y 坐标（序号 + 等差内插，抗个别序号漏识别）
         val slotMarkers = lines
             .filter { l ->
-                val b = l.boundingBox!!
+                val b = l.box
                 b.centerX() < minX - 20 && pureNumber.matches(l.text.trim())
             }
-            .sortedBy { it.boundingBox!!.top }
+            .sortedBy { it.box.top }
         if (slotMarkers.size < 2) {
             throw OcrParseException("未能识别出左侧的节次序号(1、2、3…)，请确保截图中包含节次列")
         }
         val maxSlot = slotMarkers.maxOf { it.text.trim().toIntOrNull() ?: 1 }
-        val rowHeight = medianOfDiffs(slotMarkers.map { it.boundingBox!!.centerY() }).coerceAtLeast(20)
+        val rowHeight = medianOfDiffs(slotMarkers.map { it.box.centerY() }).coerceAtLeast(20)
 
         data class Anchor(val row: Int, val y: Int)
 
         val anchors = slotMarkers.mapNotNull { m ->
-            m.text.trim().toIntOrNull()?.let { Anchor(it, m.boundingBox!!.centerY()) }
+            m.text.trim().toIntOrNull()?.let { Anchor(it, m.box.centerY()) }
         }.filter { it.row in 1..maxSlot }.groupBy { it.row }
             .map { (row, list) -> Anchor(row, list.sumOf { it.y } / list.size) }
             .sortedBy { it.row }
@@ -278,7 +286,7 @@ object OcrParser {
         val pieces = mutableListOf<Piece>()
         lines.forEach { line ->
             val t0 = line.text.trim().replace(" ", "")
-            val b = line.boundingBox!!
+            val b = line.box
             if (dayPrefixRegex.containsMatchIn(t0)) return@forEach
             if (noiseText.matches(t0) || timeText.matches(t0)) return@forEach
             if (dateText.matches(t0) || weekLabel.matches(t0)) return@forEach
@@ -332,6 +340,7 @@ object OcrParser {
         // 5. 解析格子
         val entries = mutableListOf<ParsedEntry>()
         cells.forEach { cell ->
+
             val cellText = cell.parts.joinToString("\n").trim()
             if (cellText.length < 2) return@forEach
             parseCellText(cellText, cell.day, cell.startSlot, cell.endSlot)?.let { entries.add(it) }
@@ -359,18 +368,6 @@ object OcrParser {
 
     private val listSemesterNoise = Regex("\\d{4}\\s*[-–~]\\s*\\d{4}\\s*第?\\d?\\s*[学字]期")
     private val listCodeNoise = Regex("[A-Za-z]{1,5}\\d{4,}[A-Za-z0-9]{0,6}")
-    private val listNatureWords = setOf("必修", "选修", "任选", "限选", "公选", "实践", "理论")
-
-    private fun isNoiseToken(t: String): Boolean {
-        if (t.isEmpty()) return true
-        if (pureNumber.matches(t)) return true
-        if (listCodeNoise.matches(t)) return true
-        if (t.length <= 8 && listSemesterNoise.matches(t)) return true
-        if (t in listNatureWords) return true
-        if (t.length in 2..4 && (t.endsWith("学院") || t.endsWith("系"))) return true
-        if (t == "节" || t == "周" || dateText.matches(t)) return true
-        return false
-    }
 
     /**
      * 把一行（可能粘连了整行表格内容）拆分为 课名 / 教师：
@@ -433,6 +430,7 @@ object OcrParser {
         return a.commonPrefixWith(b).length.toDouble() / maxOf(a.length, b.length) >= 0.6
     }
 
+    @Suppress("CyclomaticComplexMethod")
     internal fun parseCellText(text: String, day: Int, startSlot: Int, endSlot: Int): ParsedEntry? {
         val lines = text.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
         if (lines.isEmpty()) return null

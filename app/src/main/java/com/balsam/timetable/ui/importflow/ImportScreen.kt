@@ -64,6 +64,7 @@ import com.balsam.timetable.ui.components.WeeksPicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("LongMethod")
 fun ImportScreen(
     freshSemester: Boolean = false,
     onBack: () -> Unit,
@@ -287,6 +288,7 @@ fun ImportScreen(
                     EntryEditDialog(
                         entry = state.entries[idx],
                         totalWeeks = state.totalWeeks,
+                        slotCount = state.slotCount,
                         onDismiss = { editingIndex = null },
                         onSave = {
                             vm.updateEntry(idx, it)
@@ -460,6 +462,7 @@ private fun EntryRow(
 private fun EntryEditDialog(
     entry: ParsedEntry,
     totalWeeks: Int,
+    slotCount: Int,
     onDismiss: () -> Unit,
     onSave: (ParsedEntry) -> Unit,
 ) {
@@ -470,7 +473,6 @@ private fun EntryEditDialog(
     var startSlot by remember { mutableStateOf(entry.startSlot) }
     var endSlot by remember { mutableStateOf(entry.endSlot) }
     var weeks by remember { mutableStateOf(entry.weeks) }
-    val slotCount = 16
 
     AlertDialog(
         onDismissRequest = onDismiss,

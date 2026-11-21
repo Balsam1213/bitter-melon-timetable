@@ -70,7 +70,7 @@ class TodayWidget : GlanceAppWidget() {
         // 任何异常都不能让小组件永远停在加载动画：降级为错误文案
         val data = try {
             withContext(Dispatchers.IO) { buildTodayData() }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             WidgetData("数据加载失败", "", emptyList(), "数据加载失败，点这里重试")
         }
         val openIntent = Intent(context, MainActivity::class.java)
@@ -119,8 +119,8 @@ class TodayWidget : GlanceAppWidget() {
                     else -> STATUS_UPCOMING
                 }
                 RowData(
-                    start = start?.startTime ?: "",
-                    end = end?.endTime ?: "",
+                    start = start?.startTime.orEmpty(),
+                    end = end?.endTime.orEmpty(),
                     name = cwl.course.name,
                     location = lesson.location,
                     running = status == STATUS_RUNNING,

@@ -30,6 +30,8 @@ app/src/main/java/com/balsam/timetable/
 │   ├── repo/      TimetableRepository(课程/学期/节次/导入合并/导出/恢复) / SettingsRepository(设置+节假日存储)
 │   ├── holiday/   HolidaySyncClient（holiday-cn 联网拉取，镜像 URL 全 https 常量）
 │   ├── update/    UpdateChecker（GitHub Releases 检查更新：版本比较/解析/ABI 选包纯函数 + 匿名 GET，URL 全 https 常量）
+│   │              静态分析：detekt 2.0.0-alpha.6 门禁（config/detekt/detekt.yml，CI 与 lint 同级）
+│   ├── update/    UpdateChecker（GitHub Releases 检查更新：版本比较/解析/ABI 选包纯函数 + 匿名 GET，URL 全 https 常量）
 │   ├── backup/    AutoBackup（每日备份 Worker + MediaStore 读写与滚动清理 + 恢复前快照）/ BackupValidator（备份 JSON 校验）
 │   ├── html/      HtmlTimetableParser（教务网选课页 → 导入模型）
 │   └── importer/  XlsxParser / TextParsers(CSV,JSON) / OcrParser / ImportPlanner(校验/去重/冲突/入库计划) / ImportModels
@@ -105,7 +107,7 @@ Canvas 自绘当前查看周（1080 宽浅色长图、重叠课左右分栏、�
 
 ## 5. 测试与静态检查
 
-- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测与 `shiftWeeksIntoRange` 平移）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）、TodayLogicTest（今日视图三态/倒计时）、NextClassLogicTest（下一节课跨天/调休/翻面）、XlsxParserTest（ZipOutputStream 现场造最小 xlsx）、UpdateCheckerTest（版本比较/解析/ABI 选包/每日节流 + https 守门）、HomeBannerTest（首页横幅优先级）等（共 197 个）
+- `app/src/test`（纯逻辑单测，无 Android 依赖）：HolidayLogicTest、WeekLogicTest、WeeksCodecTest、TextParsersTest、RowMapperTest、JsonImporterTest、OcrParserTest、WeekWidgetDataTest、ImportPlannerTest（含 `conflictsAmong` 冲突检测与 `shiftWeeksIntoRange` 平移）、ReminderPlannerTest（含 7×24h 边界：恰好 7 天/超 1 分钟/跨周末/跨月/跨年）、BackupValidatorTest（v1/v2 兼容、版本过新拒绝、字段校验）、HolidaySyncClientTest（镜像 URL https 守门）、SettingsDefaultsTest（节假日预置守门）、TodayLogicTest（今日视图三态/倒计时）、NextClassLogicTest（下一节课跨天/调休/翻面）、XlsxParserTest（ZipOutputStream 现场造最小 xlsx）、UpdateCheckerTest（版本比较/解析/ABI 选包/每日节流 + https 守门）、HomeBannerTest（首页横幅优先级）等（共 198 个）
 - `app/src/androidTest`：MigrationTest（MigrationTestHelper，v3→v4 迁移在真实旧库上验证；schema 存档挂 androidTest assets）、ImportRepositoryTest（in-memory Room：重复导入跳过/无效过滤/节次补行/clearExisting/**restoreDoc 合并恢复/完整恢复/失败回滚**）、**Compose UI 测试（依赖 ui-test-junit4 + `Graph.swapForTest` 换内存库）**：RestoreScreenUiTest（恢复预览/合并执行/完整恢复二次确认）、OnboardingScreenUiTest（向导预填/创建/导入方式/就绪页）、ImportPreviewUiTest（无效与冲突标注、一键平移超界周次、**font_scale 1.5 回归线**）。UI 测试 Screen 需暴露 `vm` 默认参数注入；跑法 `connectedDebugAndroidTest -PdisableSplits`
 - **规则**：动 `WeekLogic` / `WeeksCodec` / `HolidayLogic` / `ReminderPlanner` / `ImportPlanner` / 解析器 / 备份校验 / 小组件数据构建必须先补/改对应单测；数据迁移必须写转换函数单测 + instrumented 迁移测试
 - lint：`:app:lintDebug` 纳入提交自查（错误零容忍）；detekt 因本机仅有 JDK 25/26 而 detekt 1.23.8 CLI 不支持，暂缓（见 TODO）
